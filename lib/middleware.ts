@@ -3,6 +3,21 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { z } from 'zod';
 
+interface SessionUser {
+  id: string;
+  email: string;
+  role: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  isActive: boolean;
+}
+
+interface AuthResult {
+  session: { user: SessionUser };
+  user: SessionUser;
+}
+
 export interface ApiError extends Error {
   statusCode: number;
   code?: string;
@@ -15,12 +30,13 @@ export function createApiError(message: string, statusCode: number, code?: strin
   return error;
 }
 
-export function handleApiError(error: any): NextResponse {
+export function handleApiError(error: unknown): NextResponse {
   console.error('API Error:', error);
   
   // Mongoose validation errors
-  if (error.name === 'ValidationError') {
-    const messages = Object.values(error.errors).map((err: any) => err.message);
+  if (error && typeof error === 'object' && 'name' in error && error.name === 'ValidationError' && 'errors' in error) {
+    const mongooseError = error as { errors: Record<string, { message: string }> };
+    const messages = Object.values(mongooseError.errors).map((err) => err.message);
     return NextResponse.json({
       error: 'Validation failed',
       details: messages
@@ -28,26 +44,29 @@ export function handleApiError(error: any): NextResponse {
   }
   
   // Mongoose cast errors
-  if (error.name === 'CastError') {
+  if (error && typeof error === 'object' && 'name' in error && error.name === 'CastError') {
     return NextResponse.json({
       error: 'Invalid ID format'
     }, { status: 400 });
   }
   
   // Duplicate key error
-  if (error.code === 11000) {
-    const field = Object.keys(error.keyValue)[0];
+  if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
+    const field = 'keyValue' in error && error.keyValue ? Object.keys(error.keyValue as Record<string, unknown>)[0] : 'Field';
     return NextResponse.json({
       error: `${field} already exists`
     }, { status: 409 });
   }
   
   // Custom API errors
-  if (error.statusCode) {
-    return NextResponse.json({
-      error: error.message,
-      ...(error.code && { code: error.code })
-    }, { status: error.statusCode });
+  if (error && typeof error === 'object' && 'statusCode' in error && error.statusCode) {
+    const message = 'message' in error ? String(error.message) : 'Unknown error';
+    const code = 'code' in error ? error.code : undefined;
+    const response: { error: string; code?: string } = { error: message };
+    if (code && typeof code === 'string') {
+      response.code = code;
+    }
+    return NextResponse.json(response, { status: Number(error.statusCode) });
   }
   
   // Default error
@@ -56,7 +75,7 @@ export function handleApiError(error: any): NextResponse {
   }, { status: 500 });
 }
 
-export async function requireAuth(request: NextRequest, requiredRoles?: string[]): Promise<{ session: any; user: any } | NextResponse> {
+export async function requireAuth(request: NextRequest, requiredRoles?: string[]): Promise<AuthResult | NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     
@@ -64,7 +83,7 @@ export async function requireAuth(request: NextRequest, requiredRoles?: string[]
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const user = session.user as any;
+    const user = session.user as SessionUser;
     
     if (!user.isActive) {
       return NextResponse.json({ error: 'Account is inactive' }, { status: 403 });
@@ -80,19 +99,19 @@ export async function requireAuth(request: NextRequest, requiredRoles?: string[]
       }
     }
     
-    return { session, user };
+    return { session: { user }, user };
   } catch (error) {
     console.error('Auth error:', error);
     return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
   }
 }
 
-export function validateRequest<T>(schema: z.ZodSchema<T>, data: any): T | never {
+export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): T | never {
   try {
     return schema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errorMessages = error.errors.map(err => 
+      const errorMessages = error.issues.map(err => 
         `${err.path.join('.')}: ${err.message}`
       );
       throw createApiError(
@@ -167,10 +186,10 @@ export function createPaginationResponse<T>(
 
 // Request wrapper that handles common patterns
 export function withAuth(
-  handler: (request: NextRequest, context: any, auth: { session: any; user: any }) => Promise<NextResponse>,
+  handler: (request: NextRequest, context: Record<string, unknown>, auth: AuthResult) => Promise<NextResponse>,
   requiredRoles?: string[]
 ) {
-  return async (request: NextRequest, context: any) => {
+  return async (request: NextRequest, context: Record<string, unknown>) => {
     try {
       const authResult = await requireAuth(request, requiredRoles);
       
@@ -186,9 +205,9 @@ export function withAuth(
 }
 
 export function withErrorHandling(
-  handler: (request: NextRequest, context: any) => Promise<NextResponse>
+  handler: (request: NextRequest, context: Record<string, unknown>) => Promise<NextResponse>
 ) {
-  return async (request: NextRequest, context: any) => {
+  return async (request: NextRequest, context: Record<string, unknown>) => {
     try {
       return await handler(request, context);
     } catch (error) {

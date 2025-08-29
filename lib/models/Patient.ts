@@ -56,8 +56,9 @@ const PatientSchema = new Schema<IPatient>({
   },
   phone: {
     type: String,
-    required: [true, 'Phone number is required'],
-    trim: true
+    required: false,
+    trim: true,
+    default: ''
   },
   dateOfBirth: {
     type: Date,
@@ -88,18 +89,28 @@ const PatientSchema = new Schema<IPatient>({
   timestamps: true
 });
 
-// Indexes for faster queries
-PatientSchema.index({ patientId: 1 });
+// Indexes for faster queries (patientId index is already created by unique: true)
 PatientSchema.index({ userId: 1 });
 PatientSchema.index({ email: 1 });
 PatientSchema.index({ phone: 1 });
 
-// Pre-save hook to generate patientId
-PatientSchema.pre('save', async function(next) {
+// Pre-validate hook to generate patientId BEFORE validation
+PatientSchema.pre('validate', async function(next) {
+  console.log('Patient pre-validate hook running for:', this.firstName, this.lastName);
   if (!this.patientId) {
-    const count = await mongoose.models.Patient.countDocuments();
-    this.patientId = `PAT${String(count + 1).padStart(6, '0')}`;
+    try {
+      const PatientModel = this.constructor as mongoose.Model<IPatient>;
+      const count = await PatientModel.countDocuments();
+      this.patientId = `PAT${String(count + 1).padStart(6, '0')}`;
+      console.log('Generated patientId:', this.patientId);
+    } catch (error) {
+      console.error('Error generating patientId:', error);
+      // Fallback to timestamp-based ID
+      this.patientId = `PAT${Date.now().toString().slice(-6)}`;
+      console.log('Using fallback patientId:', this.patientId);
+    }
   }
+  console.log('Patient pre-validate hook completed');
   next();
 });
 

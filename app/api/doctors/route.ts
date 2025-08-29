@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
-import Patient from '@/lib/models/Patient';
+import Doctor from '@/lib/models/Doctor';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,29 +15,36 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
+    const isActive = searchParams.get('isActive');
     const skip = (page - 1) * limit;
 
     await connectDB();
 
-    const searchQuery = search ? {
-      $or: [
+    const query: Record<string, unknown> = {};
+
+    if (search) {
+      query.$or = [
         { firstName: { $regex: search, $options: 'i' } },
         { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } },
-        { patientId: { $regex: search, $options: 'i' } }
-      ]
-    } : {};
+        { doctorId: { $regex: search, $options: 'i' } },
+        { specialization: { $regex: search, $options: 'i' } },
+        { clinic: { $regex: search, $options: 'i' } }
+      ];
+    }
 
-    const patients = await Patient.find(searchQuery)
+    if (isActive !== null && isActive !== undefined) {
+      query.isActive = isActive === 'true';
+    }
+
+    const doctors = await Doctor.find(query)
       .skip(skip)
       .limit(limit)
-      .sort({ createdAt: -1 });
+      .sort({ firstName: 1, lastName: 1 });
 
-    const total = await Patient.countDocuments(searchQuery);
+    const total = await Doctor.countDocuments(query);
 
     return NextResponse.json({
-      patients,
+      doctors,
       pagination: {
         page,
         limit,
@@ -46,7 +53,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error: unknown) {
-    console.error('Error fetching patients:', error);
+    console.error('Error fetching doctors:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -67,52 +74,43 @@ export async function POST(request: NextRequest) {
     const {
       firstName,
       lastName,
-      email,
+      specialization,
       phone,
-      dateOfBirth,
-      gender,
-      address,
-      emergencyContact,
-      medicalHistory
+      email,
+      clinic
     } = body;
 
-    if (!firstName || !lastName || !email || !phone || !dateOfBirth || !gender) {
+    if (!firstName || !lastName || !specialization || !phone) {
       return NextResponse.json({ 
-        error: 'Missing required fields: firstName, lastName, email, phone, dateOfBirth, gender' 
+        error: 'Missing required fields: firstName, lastName, specialization, phone' 
       }, { status: 400 });
     }
 
     await connectDB();
 
-    // Check if patient with email already exists
-    const existingPatient = await Patient.findOne({ email: email.toLowerCase() });
-    if (existingPatient) {
-      return NextResponse.json({ error: 'Patient with this email already exists' }, { status: 409 });
-    }
+    // Generate unique doctor ID
+    const doctorCount = await Doctor.countDocuments();
+    const doctorId = `DOC${String(doctorCount + 1).padStart(4, '0')}`;
 
-    const patient = new Patient({
-      firstName,
-      lastName,
-      email: email.toLowerCase(),
-      phone,
-      dateOfBirth: new Date(dateOfBirth),
-      gender,
-      address,
-      emergencyContact,
-      medicalHistory
+    const doctor = new Doctor({
+      doctorId,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      specialization: specialization.trim(),
+      phone: phone.trim(),
+      email: email?.trim() || '',
+      clinic: clinic?.trim() || '',
+      isActive: true
     });
 
-    await patient.save();
+    await doctor.save();
 
     return NextResponse.json({ 
-      message: 'Patient created successfully', 
-      patient 
+      message: 'Doctor registered successfully', 
+      doctor 
     }, { status: 201 });
   } catch (error: unknown) {
-    console.error('Error creating patient:', error);
-    if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
-      return NextResponse.json({ error: 'Patient with this email already exists' }, { status: 409 });
-    }
+    console.error('Error creating doctor:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

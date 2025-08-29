@@ -27,8 +27,7 @@ const TestCategorySchema = new Schema<ITestCategory>({
   timestamps: true
 });
 
-// Indexes for faster queries
-TestCategorySchema.index({ name: 1 });
+// Indexes for faster queries (name index is already created by unique: true)
 TestCategorySchema.index({ isActive: 1 });
 
 export default mongoose.models.TestCategory || mongoose.model<ITestCategory>('TestCategory', TestCategorySchema);

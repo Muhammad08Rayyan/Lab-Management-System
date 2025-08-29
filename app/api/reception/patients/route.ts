@@ -8,16 +8,17 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !['admin', 'reception'].includes(session.user.role)) {
       return NextResponse.json(
-        { error: 'Unauthorized - Admin access required' },
+        { error: 'Unauthorized - Reception or Admin access required' },
         { status: 403 }
       );
     }
 
     await connectDB();
 
-    const users = await User.find({})
+    // Only fetch users with patient role
+    const users = await User.find({ role: 'patient' })
       .select('-password')
       .sort({ createdAt: -1 })
       .lean();
@@ -25,7 +26,7 @@ export async function GET() {
     return NextResponse.json({ users });
 
   } catch (error: unknown) {
-    console.error('Get users error:', error);
+    console.error('Get patient users error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -37,26 +38,19 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !['admin', 'reception'].includes(session.user.role)) {
       return NextResponse.json(
-        { error: 'Unauthorized - Admin access required' },
+        { error: 'Unauthorized - Reception or Admin access required' },
         { status: 403 }
       );
     }
 
-    const { firstName, lastName, email, phone, password, role } = await req.json();
+    const { firstName, lastName, email, phone, password } = await req.json();
 
     // Validation
-    if (!firstName || !lastName || !email || !password || !role) {
+    if (!firstName || !lastName || !email || !password) {
       return NextResponse.json(
         { error: 'All required fields must be provided' },
-        { status: 400 }
-      );
-    }
-
-    if (!['admin', 'lab_tech', 'reception', 'patient', 'doctor'].includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role specified' },
         { status: 400 }
       );
     }
@@ -72,28 +66,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create new user (password will be hashed by the User model's pre-save hook)
+    // Create new patient user (role is locked to patient)
     const user = await User.create({
       firstName,
       lastName,
       email,
       phone,
       password,
-      role,
+      role: 'patient',
       isActive: true,
     });
 
     // Return user without password
     const userWithoutPassword = user.toObject();
-    delete (userWithoutPassword as { password?: string }).password;
+    delete userWithoutPassword.password;
 
     return NextResponse.json({ 
-      message: 'User created successfully', 
+      message: 'Patient created successfully', 
       user: userWithoutPassword 
     }, { status: 201 });
 
   } catch (error: unknown) {
-    console.error('Create user error:', error);
+    console.error('Create patient error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

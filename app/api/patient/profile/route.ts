@@ -5,7 +5,7 @@ import connectDB from '@/lib/mongodb';
 import Patient from '@/lib/models/Patient';
 import User from '@/lib/models/User';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== 'patient') {
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ patient });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching patient profile:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -80,7 +80,7 @@ export async function PUT(request: NextRequest) {
       patient 
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating patient profile:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

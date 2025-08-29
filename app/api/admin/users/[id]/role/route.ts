@@ -6,7 +6,7 @@ import User from '@/lib/models/User';
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -27,10 +27,11 @@ export async function PUT(
       );
     }
 
+    const { id } = await params;
     await connectDB();
 
     const user = await User.findByIdAndUpdate(
-      params.id,
+      id,
       { role },
       { new: true, runValidators: true }
     ).select('-password');
@@ -47,7 +48,7 @@ export async function PUT(
       user 
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update user role error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

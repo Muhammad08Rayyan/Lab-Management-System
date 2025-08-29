@@ -7,7 +7,7 @@ import mongoose from 'mongoose';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,7 +15,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
@@ -26,7 +26,7 @@ export async function GET(
     const order = await TestOrder.findById(id)
       .populate('patient', 'firstName lastName email phone patientId dateOfBirth gender address')
       .populate('doctor', 'firstName lastName email phone')
-      .populate('tests', 'testCode testName price sampleType reportingTime normalRange')
+      .populate('tests', 'code name price')
       .populate('packages', 'packageName price tests')
       .populate('createdBy', 'firstName lastName email');
 
@@ -35,15 +35,15 @@ export async function GET(
     }
 
     return NextResponse.json({ order });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching order:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-export async function PUT(
+export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -51,12 +51,89 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userRole = (session.user as any).role;
+    const userRole = (session.user as { role: string }).role;
     if (!['admin', 'reception', 'lab_tech'].includes(userRole)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const {
+      orderStatus,
+      priority,
+      sampleCollectionDate,
+      expectedReportDate,
+      notes,
+      paidAmount,
+      paymentMethod,
+      paymentStatus
+    } = body;
+
+    await connectDB();
+
+    const order = await TestOrder.findById(id);
+    if (!order) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    // Update payment amount if provided
+    const updateData: Record<string, unknown> = {};
+    
+    if (orderStatus) updateData.orderStatus = orderStatus;
+    if (priority) updateData.priority = priority;
+    if (sampleCollectionDate) updateData.sampleCollectionDate = new Date(sampleCollectionDate);
+    if (expectedReportDate) updateData.expectedReportDate = new Date(expectedReportDate);
+    if (notes !== undefined) updateData.notes = notes;
+    if (paymentMethod) updateData.paymentMethod = paymentMethod;
+    if (paymentStatus) updateData.paymentStatus = paymentStatus;
+    
+    if (paidAmount !== undefined) {
+      updateData.paidAmount = Math.max(0, Math.min(paidAmount, order.totalAmount));
+    }
+
+    const updatedOrder = await TestOrder.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate([
+      { path: 'patient', select: 'firstName lastName email phone patientId' },
+      { path: 'doctor', select: 'firstName lastName email' },
+      { path: 'tests', select: 'code name price' },
+      { path: 'packages', select: 'packageName price' },
+      { path: 'createdBy', select: 'firstName lastName email' }
+    ]);
+
+    return NextResponse.json({ 
+      message: 'Order updated successfully', 
+      order: updatedOrder 
+    });
+  } catch (error: unknown) {
+    console.error('Error updating order:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userRole = (session.user as { role: string }).role;
+    if (!['admin', 'reception', 'lab_tech'].includes(userRole)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+
+    const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
@@ -98,7 +175,7 @@ export async function PUT(
     }
 
     // Update payment amount if provided
-    let updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     
     if (orderStatus) updateData.orderStatus = orderStatus;
     if (priority) updateData.priority = priority;
@@ -118,7 +195,7 @@ export async function PUT(
     ).populate([
       { path: 'patient', select: 'firstName lastName email phone patientId' },
       { path: 'doctor', select: 'firstName lastName email' },
-      { path: 'tests', select: 'testCode testName price' },
+      { path: 'tests', select: 'code name price' },
       { path: 'packages', select: 'packageName price' },
       { path: 'createdBy', select: 'firstName lastName email' }
     ]);
@@ -127,7 +204,7 @@ export async function PUT(
       message: 'Order updated successfully', 
       order: updatedOrder 
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating order:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -135,7 +212,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -143,12 +220,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userRole = (session.user as any).role;
-    if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Only admins can delete orders' }, { status: 403 });
+    const userRole = (session.user as { role: string }).role;
+    if (!['admin', 'reception'].includes(userRole)) {
+      return NextResponse.json({ error: 'Only admins and reception staff can delete orders' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
@@ -171,7 +248,7 @@ export async function DELETE(
     await TestOrder.findByIdAndDelete(id);
 
     return NextResponse.json({ message: 'Order deleted successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting order:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

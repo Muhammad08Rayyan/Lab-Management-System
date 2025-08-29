@@ -4,6 +4,19 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+interface Address {
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+}
+
+interface EmergencyContact {
+  name: string;
+  relationship: string;
+  phone: string;
+}
+
 interface PatientProfile {
   _id: string;
   patientId: string;
@@ -13,9 +26,30 @@ interface PatientProfile {
   phone: string;
   dateOfBirth: string;
   gender: string;
-  address: any;
-  emergencyContact: any;
+  address: Address;
+  emergencyContact: EmergencyContact;
   medicalHistory: string[];
+}
+
+interface Test {
+  _id: string;
+  testName: string;
+  testCode: string;
+  price: number;
+}
+
+interface Package {
+  _id: string;
+  packageName: string;
+  packageCode: string;
+  packagePrice: number;
+}
+
+interface Doctor {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  specialization: string;
 }
 
 interface TestOrder {
@@ -26,9 +60,22 @@ interface TestOrder {
   paymentStatus: string;
   expectedReportDate: string;
   createdAt: string;
-  tests: any[];
-  packages: any[];
-  doctor: any;
+  tests: Test[];
+  packages: Package[];
+  doctor: Doctor;
+}
+
+interface TestInfo {
+  _id: string;
+  testName: string;
+  testCode: string;
+  normalRange: string;
+}
+
+interface OrderInfo {
+  _id: string;
+  orderNumber: string;
+  createdAt: string;
 }
 
 interface TestResult {
@@ -37,8 +84,8 @@ interface TestResult {
   status: string;
   flag: string;
   testedDate: string;
-  test: any;
-  order: any;
+  test: TestInfo;
+  order: OrderInfo;
   reportUrl?: string;
 }
 
@@ -88,7 +135,7 @@ export default function PatientDashboard() {
         setTestResults(resultsData.results);
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching patient data:', error);
       setError('Failed to load patient data');
     } finally {

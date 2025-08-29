@@ -11,7 +11,7 @@ export const uploadToCloudinary = async (
   file: Buffer | string,
   folder: string = process.env.CLOUDINARY_FOLDER || 'Lab',
   resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto'
-): Promise<any> => {
+): Promise<{ success: boolean; result?: { public_id: string; secure_url: string; url: string; format: string; resource_type: string }; error?: string }> => {
   try {
     const result = await cloudinary.uploader.upload(file as string, {
       folder,
@@ -30,32 +30,32 @@ export const uploadToCloudinary = async (
         resource_type: result.resource_type,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Cloudinary upload error:', error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 };
 
-export const deleteFromCloudinary = async (publicId: string): Promise<any> => {
+export const deleteFromCloudinary = async (publicId: string): Promise<{ success: boolean; result?: unknown; error?: string }> => {
   try {
     const result = await cloudinary.uploader.destroy(publicId);
     return {
       success: true,
       result,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Cloudinary delete error:', error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 };
 
-export const generateSignedUrl = (publicId: string, transformation?: any): string => {
+export const generateSignedUrl = (publicId: string, transformation?: Record<string, unknown>): string => {
   return cloudinary.url(publicId, {
     sign_url: true,
     ...transformation,

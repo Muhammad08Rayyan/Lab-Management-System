@@ -7,7 +7,7 @@ import mongoose from 'mongoose';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,7 +15,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid result ID' }, { status: 400 });
@@ -35,7 +35,7 @@ export async function GET(
     }
 
     return NextResponse.json({ result });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching result:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -43,7 +43,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -51,8 +51,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userRole = (session.user as any).role;
-    const { id } = params;
+    const userRole = (session.user as { role: string }).role;
+    const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid result ID' }, { status: 400 });
@@ -104,7 +104,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    let updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
     if (resultData && Array.isArray(resultData)) {
       // Validate result data format
@@ -150,7 +150,7 @@ export async function PUT(
       message: 'Test result updated successfully', 
       result: updatedResult 
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating result:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -158,7 +158,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -166,12 +166,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userRole = (session.user as any).role;
+    const userRole = (session.user as { role: string }).role;
     if (userRole !== 'admin') {
       return NextResponse.json({ error: 'Only admins can delete results' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid result ID' }, { status: 400 });
@@ -194,7 +194,7 @@ export async function DELETE(
     await TestResult.findByIdAndDelete(id);
 
     return NextResponse.json({ message: 'Test result deleted successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting result:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

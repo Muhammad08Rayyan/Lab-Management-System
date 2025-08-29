@@ -163,8 +163,7 @@ const InvoiceSchema = new Schema<IInvoice>({
   timestamps: true
 });
 
-// Indexes for faster queries
-InvoiceSchema.index({ invoiceNumber: 1 });
+// Indexes for faster queries (invoiceNumber already has unique index)
 InvoiceSchema.index({ testOrder: 1 });
 InvoiceSchema.index({ patient: 1 });
 InvoiceSchema.index({ paymentStatus: 1 });

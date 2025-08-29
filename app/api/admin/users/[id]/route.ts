@@ -6,7 +6,7 @@ import User from '@/lib/models/User';
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -18,17 +18,18 @@ export async function DELETE(
       );
     }
 
+    const { id } = await params;
     await connectDB();
 
     // Prevent admin from deleting themselves
-    if (params.id === session.user.id) {
+    if (id === session.user.id) {
       return NextResponse.json(
         { error: 'Cannot delete your own account' },
         { status: 400 }
       );
     }
 
-    const user = await User.findByIdAndDelete(params.id);
+    const user = await User.findByIdAndDelete(id);
 
     if (!user) {
       return NextResponse.json(
@@ -41,7 +42,7 @@ export async function DELETE(
       message: 'User deleted successfully' 
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Delete user error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

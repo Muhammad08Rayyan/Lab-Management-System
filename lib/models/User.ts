@@ -56,8 +56,7 @@ const UserSchema = new Schema<IUser>({
   timestamps: true
 });
 
-// Index for faster queries
-UserSchema.index({ email: 1 });
+// Index for faster queries (email index is already created by unique: true)
 UserSchema.index({ role: 1 });
 
 // Pre-save hook to hash password
@@ -68,8 +67,8 @@ UserSchema.pre('save', async function(next) {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
     next();
-  } catch (error: any) {
-    next(error);
+  } catch (error: unknown) {
+    next(error instanceof Error ? error : new Error(String(error)));
   }
 });
 

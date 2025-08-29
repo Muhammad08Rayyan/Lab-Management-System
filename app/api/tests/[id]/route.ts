@@ -3,12 +3,17 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import LabTest from '@/lib/models/LabTest';
-import TestCategory from '@/lib/models/TestCategory';
 import mongoose from 'mongoose';
+
+interface SessionUser {
+  id: string;
+  role: string;
+  email: string;
+}
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,60 +21,11 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid test ID' }, { status: 400 });
     }
-
-    await connectDB();
-
-    const test = await LabTest.findById(id).populate('category', 'name description');
-    if (!test) {
-      return NextResponse.json({ error: 'Test not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ test });
-  } catch (error: any) {
-    console.error('Error fetching test:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userRole = (session.user as any).role;
-    if (!['admin', 'lab_tech'].includes(userRole)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
-
-    const { id } = params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json({ error: 'Invalid test ID' }, { status: 400 });
-    }
-
-    const body = await request.json();
-    const {
-      testCode,
-      testName,
-      category,
-      description,
-      price,
-      normalRange,
-      sampleType,
-      reportingTime,
-      instructions,
-      isActive
-    } = body;
 
     await connectDB();
 
@@ -78,18 +34,48 @@ export async function PUT(
       return NextResponse.json({ error: 'Test not found' }, { status: 404 });
     }
 
-    // If category is being updated, verify it exists
-    if (category && category !== test.category.toString()) {
-      const categoryExists = await TestCategory.findById(category);
-      if (!categoryExists) {
-        return NextResponse.json({ error: 'Invalid category ID' }, { status: 400 });
-      }
+    return NextResponse.json({ test });
+  } catch (error: unknown) {
+    console.error('Error fetching test:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userRole = (session.user as SessionUser).role;
+    if (!['admin', 'lab_tech'].includes(userRole)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+
+    const { id } = await params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: 'Invalid test ID' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const { code, name, price } = body;
+
+    await connectDB();
+
+    const test = await LabTest.findById(id);
+    if (!test) {
+      return NextResponse.json({ error: 'Test not found' }, { status: 404 });
     }
 
     // Check if test code is being changed and if it already exists
-    if (testCode && testCode.toUpperCase() !== test.testCode) {
+    if (code && code.toUpperCase() !== test.code) {
       const existingTest = await LabTest.findOne({ 
-        testCode: testCode.toUpperCase(),
+        code: code.toUpperCase(),
         _id: { $ne: id }
       });
       if (existingTest) {
@@ -100,27 +86,20 @@ export async function PUT(
     const updatedTest = await LabTest.findByIdAndUpdate(
       id,
       {
-        ...(testCode && { testCode: testCode.toUpperCase() }),
-        ...(testName && { testName }),
-        ...(category && { category }),
-        ...(description !== undefined && { description }),
-        ...(price !== undefined && { price }),
-        ...(normalRange !== undefined && { normalRange }),
-        ...(sampleType && { sampleType }),
-        ...(reportingTime && { reportingTime }),
-        ...(instructions !== undefined && { instructions }),
-        ...(isActive !== undefined && { isActive })
+        ...(code && { code: code.toUpperCase() }),
+        ...(name && { name }),
+        ...(price !== undefined && { price })
       },
       { new: true, runValidators: true }
-    ).populate('category', 'name description');
+    );
 
     return NextResponse.json({ 
       message: 'Test updated successfully', 
       test: updatedTest 
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating test:', error);
-    if (error.code === 11000) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
       return NextResponse.json({ error: 'Test with this code already exists' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -129,7 +108,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -137,12 +116,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userRole = (session.user as any).role;
+    const userRole = (session.user as SessionUser).role;
     if (userRole !== 'admin') {
       return NextResponse.json({ error: 'Only admins can delete tests' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid test ID' }, { status: 400 });
@@ -156,7 +135,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({ message: 'Test deleted successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting test:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

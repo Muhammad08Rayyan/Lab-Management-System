@@ -57,13 +57,26 @@ export default function PatientRegistration() {
     
     if (name.includes('.')) {
       const [section, field] = name.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [section]: {
-          ...prev[section as keyof typeof prev],
-          [field]: value
+      setFormData(prev => {
+        if (section === 'address') {
+          return {
+            ...prev,
+            address: {
+              ...prev.address,
+              [field]: value
+            }
+          };
+        } else if (section === 'emergencyContact') {
+          return {
+            ...prev,
+            emergencyContact: {
+              ...prev.emergencyContact,
+              [field]: value
+            }
+          };
         }
-      }));
+        return prev;
+      });
     } else {
       setFormData(prev => ({
         ...prev,
@@ -135,8 +148,8 @@ export default function PatientRegistration() {
         medicalHistory: []
       });
 
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setLoading(false);
     }

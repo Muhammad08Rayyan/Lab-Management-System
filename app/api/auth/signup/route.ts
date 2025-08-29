@@ -77,11 +77,11 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Signup error:', error);
     
     // Handle duplicate key error (in case the unique constraint catches something)
-    if (error.code === 11000) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
       return NextResponse.json(
         { error: 'User with this email already exists' },
         { status: 409 }
@@ -89,8 +89,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Handle validation errors
-    if (error.name === 'ValidationError') {
-      const errorMessages = Object.values(error.errors).map((err: any) => err.message);
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'ValidationError' && 'errors' in error && error.errors) {
+      const errorMessages = Object.values(error.errors as Record<string, { message: string }>).map(err => err.message);
       return NextResponse.json(
         { error: errorMessages.join(', ') },
         { status: 400 }

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
 
-    let query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (search) {
       query.$or = [
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         pages: Math.ceil(total / limit)
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching results:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userRole = (session.user as any).role;
+    const userRole = (session.user as { role: string }).role;
     if (!['admin', 'lab_tech'].includes(userRole)) {
       return NextResponse.json({ error: 'Only lab technicians can create results' }, { status: 403 });
     }
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
       message: 'Test result created successfully', 
       result 
     }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating result:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

@@ -64,8 +64,7 @@ const DoctorSchema = new Schema<IDoctor>({
   timestamps: true
 });
 
-// Indexes for faster queries
-DoctorSchema.index({ doctorId: 1 });
+// Indexes for faster queries (doctorId already has unique index)
 DoctorSchema.index({ userId: 1 });
 DoctorSchema.index({ email: 1 });
 DoctorSchema.index({ specialization: 1 });

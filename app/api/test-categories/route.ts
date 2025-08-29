@@ -2,20 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
-import LabTest from '@/lib/models/LabTest';
-
-interface SessionUser {
-  id: string;
-  role: string;
-  email: string;
-}
-
-interface TestQuery {
-  $or?: Array<{
-    code?: { $regex: string; $options: string };
-    name?: { $regex: string; $options: string };
-  }>;
-}
+import TestCategory from '@/lib/models/TestCategory';
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,34 +13,35 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const limit = parseInt(searchParams.get('limit') || '50');
     const search = searchParams.get('search') || '';
+    const isActive = searchParams.get('isActive');
     const skip = (page - 1) * limit;
 
     await connectDB();
 
-    const query: TestQuery = {};
+    const query: Record<string, unknown> = {};
 
     if (search) {
       query.$or = [
-        { code: { $regex: search, $options: 'i' } },
-        { name: { $regex: search, $options: 'i' } }
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
       ];
     }
 
-    const tests = await LabTest.find(query)
+    if (isActive !== null && isActive !== undefined) {
+      query.isActive = isActive === 'true';
+    }
+
+    const categories = await TestCategory.find(query)
       .skip(skip)
       .limit(limit)
       .sort({ name: 1 });
 
-    const total = await LabTest.countDocuments(query);
-
-    console.log('API: Found tests:', tests.length);
-    console.log('API: Total count:', total);
-    console.log('API: Tests data:', tests);
+    const total = await TestCategory.countDocuments(query);
 
     return NextResponse.json({
-      tests,
+      categories,
       pagination: {
         page,
         limit,
@@ -62,7 +50,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error: unknown) {
-    console.error('Error fetching tests:', error);
+    console.error('Error fetching categories:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -74,44 +62,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userRole = (session.user as SessionUser).role;
+    const userRole = (session.user as { role: string }).role;
     if (!['admin', 'lab_tech'].includes(userRole)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const body = await request.json();
-    const { code, name, price } = body;
+    const { name, description } = body;
 
-    if (!code || !name || !price) {
+    if (!name || !name.trim()) {
       return NextResponse.json({ 
-        error: 'Missing required fields: code, name, price' 
+        error: 'Category name is required' 
       }, { status: 400 });
     }
 
     await connectDB();
 
-    // Check if test code already exists
-    const existingTest = await LabTest.findOne({ code: code.toUpperCase() });
-    if (existingTest) {
-      return NextResponse.json({ error: 'Test with this code already exists' }, { status: 409 });
+    // Check if category with this name already exists
+    const existingCategory = await TestCategory.findOne({ 
+      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+    });
+    
+    if (existingCategory) {
+      return NextResponse.json({ error: 'Category with this name already exists' }, { status: 409 });
     }
 
-    const test = new LabTest({
-      code: code.toUpperCase(),
-      name,
-      price
+    const category = new TestCategory({
+      name: name.trim(),
+      description: description?.trim() || ''
     });
 
-    await test.save();
+    await category.save();
 
     return NextResponse.json({ 
-      message: 'Test created successfully', 
-      test 
+      message: 'Category created successfully', 
+      category 
     }, { status: 201 });
   } catch (error: unknown) {
-    console.error('Error creating test:', error);
+    console.error('Error creating category:', error);
     if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
-      return NextResponse.json({ error: 'Test with this code already exists' }, { status: 409 });
+      return NextResponse.json({ error: 'Category with this name already exists' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

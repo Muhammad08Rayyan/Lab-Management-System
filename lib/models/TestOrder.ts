@@ -95,8 +95,7 @@ const TestOrderSchema = new Schema<ITestOrder>({
   timestamps: true
 });
 
-// Indexes for faster queries
-TestOrderSchema.index({ orderNumber: 1 });
+// Indexes for faster queries (orderNumber index is already created by unique: true)
 TestOrderSchema.index({ patient: 1 });
 TestOrderSchema.index({ doctor: 1 });
 TestOrderSchema.index({ orderStatus: 1 });
@@ -104,20 +103,34 @@ TestOrderSchema.index({ paymentStatus: 1 });
 TestOrderSchema.index({ priority: 1 });
 TestOrderSchema.index({ createdAt: -1 });
 
-// Pre-save hook to generate order number
-TestOrderSchema.pre('save', async function(next) {
+// Pre-validate hook to generate order number BEFORE validation
+TestOrderSchema.pre('validate', async function(next) {
   if (!this.orderNumber) {
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-    const count = await mongoose.models.TestOrder.countDocuments({
-      createdAt: {
-        $gte: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
-        $lt: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
-      }
-    });
-    this.orderNumber = `ORD${dateStr}${String(count + 1).padStart(4, '0')}`;
+    try {
+      const TestOrderModel = this.constructor as mongoose.Model<ITestOrder>;
+      const today = new Date();
+      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+      const count = await TestOrderModel.countDocuments({
+        createdAt: {
+          $gte: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+          $lt: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+        }
+      });
+      this.orderNumber = `ORD${dateStr}${String(count + 1).padStart(4, '0')}`;
+      console.log('Generated orderNumber:', this.orderNumber);
+    } catch (error) {
+      console.error('Error generating orderNumber:', error);
+      // Fallback to timestamp-based ID
+      const timestamp = Date.now().toString().slice(-8);
+      this.orderNumber = `ORD${timestamp}`;
+      console.log('Using fallback orderNumber:', this.orderNumber);
+    }
   }
-  
+  next();
+});
+
+// Pre-save hook for payment status updates
+TestOrderSchema.pre('save', function(next) {
   // Update payment status based on paid amount
   if (this.paidAmount === 0) {
     this.paymentStatus = 'pending';

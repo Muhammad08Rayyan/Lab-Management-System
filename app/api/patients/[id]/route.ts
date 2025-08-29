@@ -7,7 +7,7 @@ import mongoose from 'mongoose';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,7 +15,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
@@ -29,7 +29,7 @@ export async function GET(
     }
 
     return NextResponse.json({ patient });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching patient:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -37,7 +37,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -45,12 +45,12 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userRole = (session.user as any).role;
+    const userRole = (session.user as { role: string }).role;
     if (!['admin', 'reception'].includes(userRole)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
@@ -107,9 +107,9 @@ export async function PUT(
       message: 'Patient updated successfully', 
       patient: updatedPatient 
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating patient:', error);
-    if (error.code === 11000) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
       return NextResponse.json({ error: 'Patient with this email already exists' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -118,7 +118,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -126,12 +126,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userRole = (session.user as any).role;
+    const userRole = (session.user as { role: string }).role;
     if (userRole !== 'admin') {
       return NextResponse.json({ error: 'Only admins can delete patients' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
@@ -145,7 +145,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({ message: 'Patient deleted successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting patient:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

@@ -59,8 +59,7 @@ const TestPackageSchema = new Schema<ITestPackage>({
   timestamps: true
 });
 
-// Indexes for faster queries
-TestPackageSchema.index({ packageCode: 1 });
+// Indexes for faster queries (packageCode index is already created by unique: true)
 TestPackageSchema.index({ packageName: 1 });
 TestPackageSchema.index({ isActive: 1 });
 TestPackageSchema.index({ packagePrice: 1 });

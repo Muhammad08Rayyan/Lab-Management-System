@@ -2,7 +2,6 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import connectDB from './mongodb';
 import User from './models/User';
-import { IUser } from './models/User';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -45,9 +44,9 @@ export const authOptions: NextAuthOptions = {
             phone: user.phone,
             isActive: user.isActive,
           };
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('Auth error:', error);
-          throw new Error(error.message || 'Authentication failed');
+          throw new Error(error instanceof Error ? error.message : 'Authentication failed');
         }
       }
     })
@@ -62,22 +61,24 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as any).role;
-        token.firstName = (user as any).firstName;
-        token.lastName = (user as any).lastName;
-        token.phone = (user as any).phone;
-        token.isActive = (user as any).isActive;
+        const userObj = user as { role: 'admin' | 'lab_tech' | 'reception' | 'patient' | 'doctor'; firstName: string; lastName: string; phone: string; isActive: boolean };
+        token.role = userObj.role;
+        token.firstName = userObj.firstName;
+        token.lastName = userObj.lastName;
+        token.phone = userObj.phone;
+        token.isActive = userObj.isActive;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
         session.user.id = token.sub!;
-        (session.user as any).role = token.role;
-        (session.user as any).firstName = token.firstName;
-        (session.user as any).lastName = token.lastName;
-        (session.user as any).phone = token.phone;
-        (session.user as any).isActive = token.isActive;
+        const userObj = session.user as { role?: string; firstName?: string; lastName?: string; phone?: string; isActive?: boolean };
+        userObj.role = token.role as string;
+        userObj.firstName = token.firstName as string;
+        userObj.lastName = token.lastName as string;
+        userObj.phone = token.phone as string;
+        userObj.isActive = token.isActive as boolean;
       }
       return session;
     }
