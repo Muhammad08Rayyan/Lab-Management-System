@@ -143,4 +143,5 @@ TestOrderSchema.pre('save', function(next) {
   next();
 });
 
-export default mongoose.models.TestOrder || mongoose.model<ITestOrder>('TestOrder', TestOrderSchema);
+const TestOrder = mongoose.models.TestOrder || mongoose.model<ITestOrder>("TestOrder", TestOrderSchema);
+export default TestOrder;

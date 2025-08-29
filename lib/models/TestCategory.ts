@@ -30,4 +30,5 @@ const TestCategorySchema = new Schema<ITestCategory>({
 // Indexes for faster queries (name index is already created by unique: true)
 TestCategorySchema.index({ isActive: 1 });
 
-export default mongoose.models.TestCategory || mongoose.model<ITestCategory>('TestCategory', TestCategorySchema);
+const TestCategory = mongoose.models.TestCategory || mongoose.model<ITestCategory>("TestCategory", TestCategorySchema);
+export default TestCategory;

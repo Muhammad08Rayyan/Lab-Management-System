@@ -34,4 +34,5 @@ const LabTestSchema = new Schema<ILabTest>({
 LabTestSchema.index({ name: 1 });
 LabTestSchema.index({ price: 1 });
 
-export default mongoose.models.LabTest || mongoose.model<ILabTest>('LabTest', LabTestSchema);
+const LabTest = mongoose.models.LabTest || mongoose.model<ILabTest>("LabTest", LabTestSchema);
+export default LabTest;

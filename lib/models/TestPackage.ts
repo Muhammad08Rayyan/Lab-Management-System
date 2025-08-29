@@ -72,4 +72,5 @@ TestPackageSchema.pre('save', function(next) {
   next();
 });
 
-export default mongoose.models.TestPackage || mongoose.model<ITestPackage>('TestPackage', TestPackageSchema);
+const TestPackage = mongoose.models.TestPackage || mongoose.model<ITestPackage>("TestPackage", TestPackageSchema);
+export default TestPackage;

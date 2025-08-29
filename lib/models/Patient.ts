@@ -114,4 +114,5 @@ PatientSchema.pre('validate', async function(next) {
   next();
 });
 
-export default mongoose.models.Patient || mongoose.model<IPatient>('Patient', PatientSchema);
+const Patient = mongoose.models.Patient || mongoose.model<IPatient>("Patient", PatientSchema);
+export default Patient;

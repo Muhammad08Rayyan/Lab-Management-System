@@ -229,4 +229,5 @@ InvoiceSchema.pre('save', async function(next) {
   next();
 });
 
-export default mongoose.models.Invoice || mongoose.model<IInvoice>('Invoice', InvoiceSchema);
+const Invoice = mongoose.models.Invoice || mongoose.model<IInvoice>("Invoice", InvoiceSchema);
+export default Invoice;

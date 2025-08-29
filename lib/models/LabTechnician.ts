@@ -80,4 +80,5 @@ LabTechnicianSchema.pre('save', async function(next) {
   next();
 });
 
-export default mongoose.models.LabTechnician || mongoose.model<ILabTechnician>('LabTechnician', LabTechnicianSchema);
+const LabTechnician = mongoose.models.LabTechnician || mongoose.model<ILabTechnician>("LabTechnician", LabTechnicianSchema);
+export default LabTechnician;

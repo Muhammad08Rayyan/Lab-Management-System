@@ -116,4 +116,5 @@ TestResultSchema.index({ reportedDate: -1 });
 TestResultSchema.index({ patient: 1, reportedDate: -1 });
 TestResultSchema.index({ testOrder: 1, test: 1 });
 
-export default mongoose.models.TestResult || mongoose.model<ITestResult>('TestResult', TestResultSchema);
+const TestResult = mongoose.models.TestResult || mongoose.model<ITestResult>("TestResult", TestResultSchema);
+export default TestResult;
