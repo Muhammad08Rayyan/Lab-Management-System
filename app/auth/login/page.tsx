@@ -3,7 +3,7 @@
 import { useState, FormEvent } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -64,6 +64,15 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="flex justify-center mb-6">
+          <Image 
+            src="/logo.png" 
+            alt="Health Inn Services Laboratory Logo" 
+            width={80}
+            height={80}
+            className="object-contain"
+          />
+        </div>
         <h2 className="mt-6 text-center text-3xl font-bold text-foreground">
           Health Inn Services Laboratory
         </h2>
@@ -146,10 +155,15 @@ export default function LoginPage() {
 
             <div className="text-center">
               <p className="text-sm text-muted-foreground">
-                Don&apos;t have an account?{' '}
-                <Link href="/auth/signup" className="font-medium text-primary hover:opacity-90 transition-colors">
-                  Sign up here
-                </Link>
+                Powered By{' '}
+                <a 
+                  href="https://softsols.it.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="font-medium text-primary hover:opacity-90 transition-colors"
+                >
+                  Softsols Pakistan
+                </a>
               </p>
             </div>
           </form>
