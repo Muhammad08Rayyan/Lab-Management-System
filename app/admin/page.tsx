@@ -3,6 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import UserManagement from '@/components/admin/UserManagement';
 import TestManagement from '@/components/admin/TestManagement';
 
@@ -105,11 +106,20 @@ export default function AdminDashboard() {
       <header className="bg-card/80 backdrop-blur-md shadow-lg border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                Admin Panel
-              </h1>
-              <p className="text-sm text-muted-foreground">Lab Management System</p>
+            <div className="flex items-center">
+              <Image 
+                src="/logo.png" 
+                alt="Health Inn Services Laboratory" 
+                className="h-8 w-8 mr-3 object-contain" 
+                width={32}
+                height={32}
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">
+                  Admin Panel
+                </h1>
+                <p className="text-sm text-muted-foreground">Health Inn Services Laboratory</p>
+              </div>
             </div>
             
             <div className="flex items-center space-x-8">

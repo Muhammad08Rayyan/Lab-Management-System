@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const patientId = searchParams.get('patientId');
     const testOrderId = searchParams.get('testOrderId');
+    const testId = searchParams.get('test');
     const overallStatus = searchParams.get('overallStatus');
     const isVerified = searchParams.get('isVerified');
     const technicianId = searchParams.get('technicianId');
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
 
     if (patientId) query.patient = patientId;
     if (testOrderId) query.testOrder = testOrderId;
+    if (testId) query.test = testId;
     if (overallStatus) query.overallStatus = overallStatus;
     if (technicianId) query.technician = technicianId;
     
@@ -45,8 +47,8 @@ export async function GET(request: NextRequest) {
 
     const results = await TestResult.find(query)
       .populate('testOrder', 'orderNumber orderStatus priority')
-      .populate('test', 'testCode testName normalRange sampleType')
-      .populate('patient', 'firstName lastName email phone patientId')
+      .populate('test', 'code name price')
+      .populate('patient', 'firstName lastName email phone patientId dateOfBirth gender')
       .populate('technician', 'firstName lastName email')
       .populate('verifiedBy', 'firstName lastName email')
       .skip(skip)
@@ -132,9 +134,28 @@ export async function POST(request: NextRequest) {
     // Check if result already exists for this test and order
     const existingResult = await TestResult.findOne({ testOrder, test });
     if (existingResult) {
+      // Update existing result instead of creating new one
+      existingResult.resultData = resultData;
+      existingResult.overallStatus = overallStatus;
+      existingResult.comments = comments;
+      existingResult.reportUrl = reportUrl;
+      existingResult.technician = session.user.id;
+      existingResult.reportedDate = new Date();
+      
+      await existingResult.save();
+      
+      // Populate the result before returning
+      await existingResult.populate([
+        { path: 'testOrder', select: 'orderNumber orderStatus priority' },
+        { path: 'test', select: 'code name price' },
+        { path: 'patient', select: 'firstName lastName email phone patientId dateOfBirth gender' },
+        { path: 'technician', select: 'firstName lastName email' }
+      ]);
+      
       return NextResponse.json({ 
-        error: 'Result already exists for this test in this order' 
-      }, { status: 409 });
+        message: 'Test result updated successfully', 
+        result: existingResult 
+      }, { status: 200 });
     }
 
     // Validate result data format
@@ -162,7 +183,7 @@ export async function POST(request: NextRequest) {
     // Populate the result before returning
     await result.populate([
       { path: 'testOrder', select: 'orderNumber orderStatus priority' },
-      { path: 'test', select: 'testCode testName normalRange sampleType' },
+      { path: 'test', select: 'code name price' },
       { path: 'patient', select: 'firstName lastName email phone patientId' },
       { path: 'technician', select: 'firstName lastName email' }
     ]);

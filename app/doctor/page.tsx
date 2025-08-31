@@ -3,6 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import Image from 'next/image';
 
 export default function DoctorDashboard() {
   const { data: session, status } = useSession();
@@ -39,12 +40,17 @@ export default function DoctorDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <div className="bg-yellow-600 p-2 rounded-lg mr-4">
-                <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
+              <Image 
+                src="/logo.png" 
+                alt="Health Inn Services Laboratory" 
+                width={32}
+                height={32}
+                className="mr-4 object-contain" 
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Doctor Dashboard</h1>
+                <p className="text-sm text-gray-600">Health Inn Services Laboratory</p>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900">Doctor Dashboard</h1>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-700">

@@ -36,13 +36,17 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    if (orderStatus) query.orderStatus = orderStatus;
+    if (orderStatus) {
+      // Support multiple order statuses separated by comma
+      const statuses = orderStatus.split(',').map(s => s.trim());
+      query.orderStatus = statuses.length > 1 ? { $in: statuses } : orderStatus;
+    }
     if (paymentStatus) query.paymentStatus = paymentStatus;
     if (priority) query.priority = priority;
     if (patientId) query.patient = patientId;
 
     const orders = await TestOrder.find(query)
-      .populate('patient', 'firstName lastName email phone patientId')
+      .populate('patient', 'firstName lastName email phone patientId dateOfBirth gender')
       .populate('doctor', 'firstName lastName email')
       .populate('tests', 'code name price')
       .populate('packages', 'packageName price')

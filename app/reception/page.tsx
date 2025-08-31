@@ -5,6 +5,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import PatientManagement from '@/components/reception/PatientManagement';
 import TestAssignment from '@/components/reception/TestAssignment';
+import Image from 'next/image';
 
 function ReceptionDashboardContent() {
   const { data: session, status } = useSession();
@@ -93,11 +94,20 @@ function ReceptionDashboardContent() {
       <header className="bg-card/80 backdrop-blur-md shadow-lg border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                Reception Panel
-              </h1>
-              <p className="text-sm text-muted-foreground">Lab Management System</p>
+            <div className="flex items-center">
+              <Image 
+                src="/logo.png" 
+                alt="Health Inn Services Laboratory" 
+                width={32}
+                height={32}
+                className="mr-3 object-contain" 
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">
+                  Reception Panel
+                </h1>
+                <p className="text-sm text-muted-foreground">Health Inn Services Laboratory</p>
+              </div>
             </div>
             
             <div className="flex items-center space-x-8">

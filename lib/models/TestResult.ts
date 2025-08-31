@@ -41,7 +41,7 @@ const TestResultSchema = new Schema<ITestResult>({
   },
   technician: {
     type: Schema.Types.ObjectId,
-    ref: 'LabTechnician',
+    ref: 'User',
     required: [true, 'Technician is required']
   },
   resultData: [{
@@ -86,7 +86,7 @@ const TestResultSchema = new Schema<ITestResult>({
   },
   verifiedBy: {
     type: Schema.Types.ObjectId,
-    ref: 'Doctor'
+    ref: 'User'
   },
   verifiedDate: {
     type: Date

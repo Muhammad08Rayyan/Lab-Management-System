@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface LabTest {
   _id: string;
@@ -17,6 +17,12 @@ export default function TestManagement() {
   const [editingTest, setEditingTest] = useState<LabTest | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalTests, setTotalTests] = useState(0);
+  const testsPerPage = 20;
 
   // Form states
   const [testForm, setTestForm] = useState({
@@ -25,20 +31,52 @@ export default function TestManagement() {
     price: ''
   });
 
-  useEffect(() => {
-    fetchTests();
-  }, []);
-
-  const fetchTests = async () => {
+  const fetchTests = useCallback(async (page = currentPage, search = searchTerm) => {
     try {
-      const response = await fetch('/api/tests');
+      const searchParams = new URLSearchParams({
+        page: page.toString(),
+        limit: testsPerPage.toString(),
+        ...(search && { search })
+      });
+      
+      const response = await fetch(`/api/tests?${searchParams}`);
       if (response.ok) {
         const data = await response.json();
         setTests(data.tests || []);
+        setTotalPages(data.pagination?.pages || 1);
+        setTotalTests(data.pagination?.total || 0);
+        setCurrentPage(page);
       }
     } catch (error) {
       console.error('Error fetching tests:', error);
     }
+  }, [currentPage, searchTerm, testsPerPage]);
+
+  const handleSearch = useCallback((term: string) => {
+    setSearchTerm(term);
+    setCurrentPage(1); // Reset to first page when searching
+    fetchTests(1, term);
+  }, [fetchTests]);
+
+  useEffect(() => {
+    fetchTests();
+  }, [fetchTests]);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm !== '') {
+        handleSearch(searchTerm);
+      } else {
+        fetchTests(1, '');
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, handleSearch, fetchTests]);
+
+  const handlePageChange = (page: number) => {
+    fetchTests(page, searchTerm);
   };
 
 
@@ -136,13 +174,7 @@ export default function TestManagement() {
   };
 
 
-  const filteredTests = tests.filter(test => {
-    const matchesSearch = 
-      (test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (test.code || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesSearch;
-  });
+  // Remove local filtering since we're doing server-side search/pagination
 
   return (
     <div className="overflow-hidden">
@@ -168,7 +200,7 @@ export default function TestManagement() {
               Add Test
             </button>
             <button
-              onClick={fetchTests}
+              onClick={() => fetchTests()}
               className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm transition-all duration-200"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,6 +256,19 @@ export default function TestManagement() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="block w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:placeholder-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-all duration-200 hover:border-gray-300"
               />
+              {searchTerm && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    fetchTests(1, '');
+                  }}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                >
+                  <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -248,7 +293,7 @@ export default function TestManagement() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
-            {filteredTests.map((test) => (
+            {tests.map((test) => (
               <tr key={test._id} className="hover:bg-blue-50/50 transition-colors duration-200">
                 <td className="px-6 py-5 whitespace-nowrap">
                   <div className="text-sm font-mono font-semibold text-gray-900">{test.code}</div>
@@ -285,7 +330,7 @@ export default function TestManagement() {
         </table>
       </div>
 
-      {filteredTests.length === 0 && (
+      {tests.length === 0 && (
         <div className="text-center py-12">
           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5L8 4z" />
@@ -297,12 +342,99 @@ export default function TestManagement() {
         </div>
       )}
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="px-6 py-4 bg-white border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing page <span className="font-medium">{currentPage}</span> of{' '}
+                  <span className="font-medium">{totalPages}</span>
+                  {' '}({totalTests} total tests)
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  
+                  {/* Page Numbers */}
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                          currentPage === pageNum
+                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  
+                  <button
+                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Next</span>
+                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Stats */}
       <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200">
         <div className="flex justify-between items-center text-sm">
           <div className="flex items-center space-x-4">
             <span className="text-gray-600">
-              <span className="font-semibold text-gray-900">{tests.length}</span> total tests
+              Showing <span className="font-semibold text-gray-900">{tests.length}</span> of <span className="font-semibold text-gray-900">{totalTests}</span> tests
+              {searchTerm && <span className="text-blue-600 ml-2">(filtered by &quot;{searchTerm}&quot;)</span>}
             </span>
           </div>
           <div className="text-xs text-gray-500">

@@ -54,15 +54,28 @@ export default function TestAssignment() {
   const [patients, setPatients] = useState<User[]>([]);
   const [orders, setOrders] = useState<TestOrder[]>([]);
   const [loading] = useState(false);
+  const [testsLoading, setTestsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [selectedTests, setSelectedTests] = useState<string[]>([]);
+  const [selectedTestObjects, setSelectedTestObjects] = useState<LabTest[]>([]);
   const [formLoading, setFormLoading] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [currentOrder, setCurrentOrder] = useState<TestOrder | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  
+  // Test pagination states
+  const [currentTestPage, setCurrentTestPage] = useState(1);
+  const [totalTestPages, setTotalTestPages] = useState(1);
+  const testsPerTestPage = 20;
+  
+  // Patient search states
+  const [patientSearchTerm, setPatientSearchTerm] = useState('');
+  const [filteredPatients, setFilteredPatients] = useState<User[]>([]);
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [orderForm, setOrderForm] = useState({
     patientId: '',
     priority: 'normal' as 'normal' | 'urgent' | 'stat',
@@ -71,25 +84,85 @@ export default function TestAssignment() {
   });
 
   useEffect(() => {
-    fetchTests();
+    // Only fetch patients and orders on load, not tests
     fetchPatients();
     fetchOrders();
   }, []);
+  
+  // Close patient dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showPatientDropdown) {
+        const target = event.target as Element;
+        // Don't close if clicking on patient dropdown items or their children
+        if (!target.closest('.patient-search-container') && !target.closest('.patient-dropdown-item')) {
+          setShowPatientDropdown(false);
+        }
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showPatientDropdown]);
 
-  const fetchTests = async () => {
+  // Filter patients based on search term
+  useEffect(() => {
+    if (patientSearchTerm.trim()) {
+      const filtered = patients.filter(patient => 
+        `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
+        patient.email.toLowerCase().includes(patientSearchTerm.toLowerCase())
+      );
+      setFilteredPatients(filtered);
+    } else {
+      setFilteredPatients(patients);
+    }
+  }, [patientSearchTerm, patients]);
+
+  // Debounced search effect for tests
+  useEffect(() => {
+    if (searchTerm.length >= 1) {
+      const timeoutId = setTimeout(() => {
+        fetchTests(searchTerm, 1);
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    } else {
+      // Clear tests if search is too short
+      setTests([]);
+      setHasSearched(false);
+      setCurrentTestPage(1);
+      setTotalTestPages(1);
+    }
+  }, [searchTerm]);
+
+  const fetchTests = async (search: string, page: number = 1) => {
+    if (!search || search.length < 1) {
+      setTests([]);
+      setHasSearched(false);
+      return;
+    }
+
     try {
-      const response = await fetch('/api/tests');
+      setTestsLoading(true);
+      const searchParams = new URLSearchParams({
+        search,
+        page: page.toString(),
+        limit: testsPerTestPage.toString()
+      });
+      
+      const response = await fetch(`/api/tests?${searchParams}`);
       if (response.ok) {
         const data = await response.json();
-        console.log('Tests API Response:', data);
-        console.log('Tests array:', data.tests);
-        console.log('Tests count:', data.tests?.length || 0);
         setTests(data.tests || []);
+        setTotalTestPages(data.pagination?.pages || 1);
+        setCurrentTestPage(page);
+        setHasSearched(true);
       } else {
         console.error('Failed to fetch tests:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching tests:', error);
+    } finally {
+      setTestsLoading(false);
     }
   };
 
@@ -189,6 +262,9 @@ export default function TestAssignment() {
 
   const resetOrderForm = () => {
     setSelectedTests([]);
+    setSelectedTestObjects([]);
+    setPatientSearchTerm('');
+    setShowPatientDropdown(false);
     setOrderForm({
       patientId: '',
       priority: 'normal',
@@ -215,6 +291,10 @@ export default function TestAssignment() {
     fetchOrders(); // Refresh orders to show updated payment status
     setSuccess('Payment processed successfully!');
     setTimeout(() => setSuccess(''), 5000);
+  };
+
+  const handleTestPageChange = (page: number) => {
+    fetchTests(searchTerm, page);
   };
 
   const handleShowOrderReceipt = (order: TestOrder) => {
@@ -253,20 +333,9 @@ export default function TestAssignment() {
   };
 
 
-  const filteredTests = tests.filter(test => {
-    const matchesSearch = 
-      (test.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (test.code || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesSearch;
-  });
+  // Remove client-side filtering since we're doing server-side search
+  // Tests are already filtered by the API call
 
-  // Debug logging
-  console.log('Current tests state:', tests);
-  console.log('Current search term:', searchTerm);
-  console.log('Filtered tests:', filteredTests);
-
-  const selectedTestObjects = tests.filter(test => selectedTests.includes(test._id));
   const totalAmount = selectedTestObjects.reduce((sum, test) => sum + test.price, 0);
 
 
@@ -281,7 +350,14 @@ export default function TestAssignment() {
           </div>
           <div className="flex space-x-3">
             <Button
-              onClick={() => setShowOrderModal(true)}
+              onClick={() => {
+                setShowOrderModal(true);
+                setSelectedTests([]);
+                setSelectedTestObjects([]);
+                setSearchTerm('');
+                setTests([]);
+                setHasSearched(false);
+              }}
               variant="success"
               className="shadow-lg hover:shadow-xl"
             >
@@ -291,7 +367,7 @@ export default function TestAssignment() {
               Create Test Order
             </Button>
             <Button
-              onClick={() => { fetchOrders(); fetchTests(); fetchPatients(); }}
+              onClick={() => { fetchOrders(); fetchPatients(); }}
               variant="ghost"
               className="border border-input bg-background hover:bg-accent shadow-sm"
             >
@@ -499,30 +575,83 @@ export default function TestAssignment() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Left Column - Patient & Order Info */}
-                <div className="space-y-6">
+              <div className="space-y-8">
+                {/* Order Information Section */}
+                <div className="bg-gray-50 rounded-xl p-6 space-y-6">
                   <div>
                     <h4 className="text-lg font-semibold text-foreground mb-4">Order Information</h4>
                     
                     {/* Patient Selection */}
-                    <div className="mb-4">
+                    <div className="mb-4 relative patient-search-container">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Select Patient *
                       </label>
-                      <select
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search patients by name or email..."
+                          value={patientSearchTerm}
+                          onChange={(e) => {
+                            setPatientSearchTerm(e.target.value);
+                            setShowPatientDropdown(true);
+                          }}
+                          onFocus={() => setShowPatientDropdown(true)}
+                          className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        </div>
+                      </div>
+                      
+                      {/* Dropdown */}
+                      {showPatientDropdown && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                          {filteredPatients.length > 0 ? (
+                            filteredPatients.map((patient) => (
+                              <button
+                                key={patient._id}
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  console.log('Patient selected via mousedown:', patient._id, patient.firstName, patient.lastName);
+                                  setOrderForm({ ...orderForm, patientId: patient._id });
+                                  setPatientSearchTerm(`${patient.firstName} ${patient.lastName} - ${patient.email}`);
+                                  setShowPatientDropdown(false);
+                                  // Clear patient ID error if it exists
+                                  if (formErrors.patientId) {
+                                    setFormErrors({ ...formErrors, patientId: '' });
+                                  }
+                                }}
+                                className="patient-dropdown-item w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-b-0 cursor-pointer"
+                              >
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <div className="font-medium text-gray-900">{patient.firstName} {patient.lastName}</div>
+                                    <div className="text-sm text-gray-500">{patient.email}</div>
+                                  </div>
+                                  {patient.phone && (
+                                    <div className="text-sm text-gray-400">{patient.phone}</div>
+                                  )}
+                                </div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-4 py-3 text-gray-500 text-center">
+                              No patients found
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Hidden input to store actual patient ID for form validation */}
+                      <input
+                        type="hidden"
                         value={orderForm.patientId}
-                        onChange={(e) => setOrderForm({ ...orderForm, patientId: e.target.value })}
-                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
                         required
-                      >
-                        <option value="">Choose a patient...</option>
-                        {patients.map((patient) => (
-                          <option key={patient._id} value={patient._id}>
-                            {patient.firstName} {patient.lastName} - {patient.email}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
 
                     {/* Priority */}
@@ -569,29 +698,9 @@ export default function TestAssignment() {
                     </div>
                   </div>
 
-                  {/* Selected Tests Summary */}
-                  {selectedTests.length > 0 && (
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                      <h5 className="font-semibold text-green-800 mb-3">Selected Tests ({selectedTests.length})</h5>
-                      <div className="space-y-2 max-h-32 overflow-y-auto">
-                        {selectedTestObjects.map((test) => (
-                          <div key={test._id} className="flex justify-between items-center text-sm">
-                            <span className="text-green-700">{test.name}</span>
-                            <span className="font-medium text-green-800">Rs. {test.price.toLocaleString()}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-green-300">
-                        <div className="flex justify-between items-center font-semibold text-green-800">
-                          <span>Total Amount:</span>
-                          <span>Rs. {totalAmount.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
-
-                {/* Right Column - Test Selection */}
+                
+                {/* Test Selection Section - Full Width */}
                 <div>
                   <h4 className="text-lg font-semibold text-foreground mb-4">Select Tests</h4>
                   
@@ -616,7 +725,31 @@ export default function TestAssignment() {
 
                   {/* Test List */}
                   <div className="border border-gray-300 rounded-xl max-h-96 overflow-y-auto">
-                    {filteredTests.map((test) => (
+                    {/* Show search prompt when no search has been made */}
+                    {!hasSearched && searchTerm.length < 1 && (
+                      <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+                        <svg className="h-16 w-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Search for Tests</h3>
+                        <p className="text-sm text-gray-500 mb-1">Start typing to search through available tests</p>
+                        <p className="text-xs text-gray-400">Search by test name or code</p>
+                      </div>
+                    )}
+
+                    {/* Show loading state */}
+                    {testsLoading && (
+                      <div className="flex items-center justify-center py-8">
+                        <svg className="animate-spin h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="ml-2 text-gray-600">Searching tests...</span>
+                      </div>
+                    )}
+
+                    {/* Show test results */}
+                    {!testsLoading && hasSearched && tests.map((test) => (
                       <div
                         key={test._id}
                         className={`p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors duration-200 ${
@@ -629,9 +762,13 @@ export default function TestAssignment() {
                             checked={selectedTests.includes(test._id)}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedTests([...selectedTests, test._id]);
+                                if (!selectedTests.includes(test._id)) {
+                                  setSelectedTests([...selectedTests, test._id]);
+                                  setSelectedTestObjects([...selectedTestObjects, test]);
+                                }
                               } else {
                                 setSelectedTests(selectedTests.filter(id => id !== test._id));
+                                setSelectedTestObjects(selectedTestObjects.filter(obj => obj._id !== test._id));
                               }
                             }}
                             className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
@@ -650,17 +787,102 @@ export default function TestAssignment() {
                         </label>
                       </div>
                     ))}
+                    {/* Show no results message */}
+                    {!testsLoading && hasSearched && tests.length === 0 && (
+                      <div className="text-center py-8 px-6">
+                        <svg className="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5L8 4z" />
+                        </svg>
+                        <h3 className="font-medium text-gray-900 mb-1">No tests found</h3>
+                        <p className="text-sm text-gray-500">Try searching with different keywords</p>
+                      </div>
+                    )}
                   </div>
 
-                  {filteredTests.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <svg className="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5L8 4z" />
-                      </svg>
-                      No tests found
+                  {/* Search results summary */}
+                  {hasSearched && tests.length > 0 && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      Found {tests.length} test{tests.length !== 1 ? 's' : ''} for &quot;{searchTerm}&quot;
+                      {totalTestPages > 1 && <span className="text-gray-600"> (page {currentTestPage} of {totalTestPages})</span>}
+                    </div>
+                  )}
+                  
+                  {/* Test Pagination */}
+                  {totalTestPages > 1 && hasSearched && (
+                    <div className="mt-3 flex items-center justify-between border-t border-gray-200 pt-3">
+                      <button
+                        onClick={() => handleTestPageChange(Math.max(1, currentTestPage - 1))}
+                        disabled={currentTestPage === 1}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Previous
+                      </button>
+                      <div className="flex items-center space-x-2">
+                        {Array.from({ length: Math.min(5, totalTestPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalTestPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentTestPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentTestPage >= totalTestPages - 2) {
+                            pageNum = totalTestPages - 4 + i;
+                          } else {
+                            pageNum = currentTestPage - 2 + i;
+                          }
+                          
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => handleTestPageChange(pageNum)}
+                              className={`px-2.5 py-1 text-sm rounded ${
+                                currentTestPage === pageNum
+                                  ? 'bg-green-500 text-white'
+                                  : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => handleTestPageChange(Math.min(totalTestPages, currentTestPage + 1))}
+                        disabled={currentTestPage === totalTestPages}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
                     </div>
                   )}
                 </div>
+                
+                {/* Selected Tests Summary */}
+                {selectedTests.length > 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <h5 className="font-semibold text-green-800 mb-3">Selected Tests ({selectedTests.length})</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                      {selectedTestObjects.map((test) => (
+                        <div key={test._id} className="bg-white rounded-lg p-3 shadow-sm border border-green-200">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="font-medium text-green-800 text-sm">{test.name}</div>
+                              <div className="text-xs text-green-600 font-mono">{test.code}</div>
+                            </div>
+                            <div className="text-right ml-2">
+                              <div className="font-semibold text-green-800 text-sm">Rs. {test.price.toLocaleString()}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-3 border-t border-green-300">
+                      <div className="flex justify-between items-center font-bold text-green-800 text-lg">
+                        <span>Total Amount:</span>
+                        <span>Rs. {totalAmount.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Submit Buttons */}
@@ -706,9 +928,11 @@ export default function TestAssignment() {
             <span className="text-muted-foreground">
               <span className="font-semibold text-foreground">{orders.length}</span> total orders
             </span>
-            <span className="text-muted-foreground">
-              <span className="font-semibold text-foreground">{tests.length}</span> available tests
-            </span>
+            {hasSearched && (
+              <span className="text-muted-foreground">
+                <span className="font-semibold text-foreground">{tests.length}</span> tests found
+              </span>
+            )}
             <span className="text-muted-foreground">
               <span className="font-semibold text-foreground">{patients.length}</span> patients
             </span>
@@ -734,9 +958,9 @@ export default function TestAssignment() {
           )}
 
           <ModalBody>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left Column - Patient & Order Info */}
-              <div className="space-y-6">
+            <div className="space-y-8">
+              {/* Order Information Section */}
+              <div className="bg-accent/30 rounded-[var(--radius-lg)] p-6 space-y-6">
                 <div>
                   <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                     <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -746,22 +970,79 @@ export default function TestAssignment() {
                   </h4>
                   
                   <div className="grid gap-4">
-                    <FormField error={formErrors.patientId}>
+                    <div className="patient-search-container">
+                      <FormField error={formErrors.patientId}>
                       <Label htmlFor="patientId" required>Select Patient</Label>
-                      <Select
-                        id="patientId"
+                      <div className="relative">
+                        <Input
+                          id="patientId"
+                          type="text"
+                          placeholder="Search patients by name or email..."
+                          value={patientSearchTerm}
+                          onChange={(e) => {
+                            setPatientSearchTerm(e.target.value);
+                            setShowPatientDropdown(true);
+                          }}
+                          onFocus={() => setShowPatientDropdown(true)}
+                          error={!!formErrors.patientId}
+                          className="pr-10"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <svg className="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        </div>
+                        
+                        {/* Dropdown */}
+                        {showPatientDropdown && (
+                          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-[var(--radius-md)] shadow-lg max-h-60 overflow-y-auto">
+                            {filteredPatients.length > 0 ? (
+                              filteredPatients.map((patient) => (
+                                <button
+                                  key={patient._id}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    console.log('Patient selected via mousedown:', patient._id, patient.firstName, patient.lastName);
+                                    setOrderForm({ ...orderForm, patientId: patient._id });
+                                    setPatientSearchTerm(`${patient.firstName} ${patient.lastName} - ${patient.email}`);
+                                    setShowPatientDropdown(false);
+                                    // Clear patient ID error if it exists
+                                    if (formErrors.patientId) {
+                                      setFormErrors({ ...formErrors, patientId: '' });
+                                    }
+                                  }}
+                                  className="w-full text-left px-4 py-3 hover:bg-accent focus:bg-accent focus:outline-none border-b border-border last:border-b-0 cursor-pointer"
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <div>
+                                      <div className="font-medium text-foreground">{patient.firstName} {patient.lastName}</div>
+                                      <div className="text-sm text-muted-foreground">{patient.email}</div>
+                                    </div>
+                                    {patient.phone && (
+                                      <div className="text-sm text-muted-foreground">{patient.phone}</div>
+                                    )}
+                                  </div>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-4 py-3 text-muted-foreground text-center">
+                                No patients found
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Hidden input for validation */}
+                      <input
+                        type="hidden"
                         value={orderForm.patientId}
-                        onChange={(e) => setOrderForm({ ...orderForm, patientId: e.target.value })}
-                        error={!!formErrors.patientId}
-                      >
-                        <option value="">Choose a patient...</option>
-                        {patients.map((patient) => (
-                          <option key={patient._id} value={patient._id}>
-                            {patient.firstName} {patient.lastName} - {patient.email}
-                          </option>
-                        ))}
-                      </Select>
+                        required
+                      />
                     </FormField>
+                    </div>
 
                     <FormField>
                       <Label htmlFor="priority">Priority</Label>
@@ -800,42 +1081,12 @@ export default function TestAssignment() {
                   </div>
                 </div>
 
-                {/* Selected Tests Summary */}
-                {selectedTests.length > 0 && (
-                  <div className="bg-green-50 border border-green-200 rounded-[var(--radius-lg)] p-4">
-                    <h5 className="font-semibold text-green-800 mb-3 flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Selected Tests ({selectedTests.length})
-                    </h5>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {selectedTestObjects.map((test) => (
-                        <div key={test._id} className="flex justify-between items-center text-sm bg-white rounded-[var(--radius-md)] p-2">
-                          <div className="flex-1">
-                            <span className="text-green-700 font-medium">{test.name}</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-semibold text-green-800">Rs. {test.price.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-green-300">
-                      <div className="flex justify-between items-center font-bold text-green-800 text-base">
-                        <span>Total Amount:</span>
-                        <span>Rs. {totalAmount.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {formErrors.tests && (
                   <Alert variant="error">{formErrors.tests}</Alert>
                 )}
               </div>
-
-              {/* Right Column - Test Selection */}
+              
+              {/* Test Selection Section - Full Width */}
               <div>
                 <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                   <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -854,18 +1105,49 @@ export default function TestAssignment() {
                     </div>
                     <Input
                       type="text"
-                      placeholder="Search tests..."
+                      placeholder="Search tests by name or code..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 py-3"
                     />
+                    {testsLoading && (
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                        <svg className="animate-spin h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      </div>
+                    )}
                   </div>
-                  
                 </div>
 
                 {/* Test List */}
                 <div className="border border-border rounded-[var(--radius-lg)] max-h-96 overflow-y-auto">
-                  {filteredTests.map((test) => (
+                  {/* Show search prompt when no search has been made */}
+                  {!hasSearched && searchTerm.length < 1 && (
+                    <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+                      <svg className="h-16 w-16 text-muted-foreground/30 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <h3 className="text-lg font-medium text-foreground mb-2">Search for Tests</h3>
+                      <p className="text-sm text-muted-foreground mb-1">Start typing to search through available tests</p>
+                      <p className="text-xs text-muted-foreground/70">Search by test name or code</p>
+                    </div>
+                  )}
+
+                  {/* Show loading state */}
+                  {testsLoading && (
+                    <div className="flex items-center justify-center py-8">
+                      <svg className="animate-spin h-8 w-8 text-muted-foreground" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 818-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span className="ml-2 text-muted-foreground">Searching tests...</span>
+                    </div>
+                  )}
+
+                  {/* Show test results */}
+                  {!testsLoading && hasSearched && tests.map((test) => (
                     <div
                       key={test._id}
                       className={`p-4 border-b border-border hover:bg-accent/50 transition-colors duration-200 ${
@@ -878,9 +1160,13 @@ export default function TestAssignment() {
                           checked={selectedTests.includes(test._id)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setSelectedTests([...selectedTests, test._id]);
+                              if (!selectedTests.includes(test._id)) {
+                                setSelectedTests([...selectedTests, test._id]);
+                                setSelectedTestObjects([...selectedTestObjects, test]);
+                              }
                             } else {
                               setSelectedTests(selectedTests.filter(id => id !== test._id));
+                              setSelectedTestObjects(selectedTestObjects.filter(obj => obj._id !== test._id));
                             }
                             // Clear tests error when user selects a test
                             if (formErrors.tests) {
@@ -903,18 +1189,111 @@ export default function TestAssignment() {
                       </label>
                     </div>
                   ))}
+
+                  {/* Show no results message */}
+                  {!testsLoading && hasSearched && tests.length === 0 && (
+                    <div className="text-center py-8 px-6">
+                      <svg className="mx-auto h-12 w-12 text-muted-foreground mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5L8 4z" />
+                      </svg>
+                      <h3 className="font-medium text-foreground mb-1">No tests found</h3>
+                      <p className="text-sm text-muted-foreground">Try searching with different keywords</p>
+                    </div>
+                  )}
                 </div>
 
-                {filteredTests.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <svg className="mx-auto h-12 w-12 text-muted-foreground mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5L8 4z" />
-                    </svg>
-                    <h3 className="font-medium">No tests found</h3>
-                    <p className="text-sm">Try adjusting your search criteria</p>
+                {/* Search results summary */}
+                {hasSearched && tests.length > 0 && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Found {tests.length} test{tests.length !== 1 ? 's' : ''} for &quot;{searchTerm}&quot;
+                    {totalTestPages > 1 && <span className="text-muted-foreground"> (page {currentTestPage} of {totalTestPages})</span>}
+                  </div>
+                )}
+                
+                {/* Test Pagination */}
+                {totalTestPages > 1 && hasSearched && (
+                  <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleTestPageChange(Math.max(1, currentTestPage - 1))}
+                      disabled={currentTestPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <div className="flex items-center space-x-2">
+                      {Array.from({ length: Math.min(5, totalTestPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalTestPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentTestPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentTestPage >= totalTestPages - 2) {
+                          pageNum = totalTestPages - 4 + i;
+                        } else {
+                          pageNum = currentTestPage - 2 + i;
+                        }
+                        
+                        return (
+                          <Button
+                            key={pageNum}
+                            type="button"
+                            variant={currentTestPage === pageNum ? "success" : "ghost"}
+                            size="sm"
+                            onClick={() => handleTestPageChange(pageNum)}
+                            className="min-w-[32px] px-2"
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleTestPageChange(Math.min(totalTestPages, currentTestPage + 1))}
+                      disabled={currentTestPage === totalTestPages}
+                    >
+                      Next
+                    </Button>
                   </div>
                 )}
               </div>
+              
+              {/* Selected Tests Summary */}
+              {selectedTests.length > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-[var(--radius-lg)] p-4">
+                  <h5 className="font-semibold text-green-800 mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Selected Tests ({selectedTests.length})
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                    {selectedTestObjects.map((test) => (
+                      <div key={test._id} className="bg-white rounded-[var(--radius-md)] p-3 shadow-sm border border-green-200">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="font-medium text-green-800 text-sm">{test.name}</div>
+                            <div className="text-xs text-green-600 font-mono">{test.code}</div>
+                          </div>
+                          <div className="text-right ml-2">
+                            <div className="font-semibold text-green-800 text-sm">Rs. {test.price.toLocaleString()}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pt-3 border-t border-green-300">
+                    <div className="flex justify-between items-center font-bold text-green-800 text-lg">
+                      <span>Total Amount:</span>
+                      <span>Rs. {totalAmount.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </ModalBody>
 

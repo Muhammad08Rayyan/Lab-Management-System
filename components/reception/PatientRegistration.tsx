@@ -7,6 +7,7 @@ interface PatientFormData {
   lastName: string;
   email: string;
   phone: string;
+  password: string;
   dateOfBirth: string;
   gender: 'male' | 'female' | 'other';
   address: {
@@ -35,6 +36,7 @@ export default function PatientRegistration() {
     lastName: '',
     email: '',
     phone: '',
+    password: '',
     dateOfBirth: '',
     gender: 'male',
     address: {
@@ -109,7 +111,7 @@ export default function PatientRegistration() {
     setSuccess('');
 
     try {
-      const response = await fetch('/api/patients', {
+      const response = await fetch('/api/reception/patients', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -123,7 +125,7 @@ export default function PatientRegistration() {
         throw new Error(data.error || 'Failed to register patient');
       }
 
-      setSuccess(`Patient registered successfully! Patient ID: ${data.patient.patientId}`);
+      setSuccess(`Patient registered successfully! User ID: ${data.user._id}`);
       
       // Reset form
       setFormData({
@@ -131,6 +133,7 @@ export default function PatientRegistration() {
         lastName: '',
         email: '',
         phone: '',
+        password: '',
         dateOfBirth: '',
         gender: 'male',
         address: {
@@ -263,6 +266,22 @@ export default function PatientRegistration() {
                 required
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
                 placeholder="Enter phone number"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password *
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required
+                minLength={6}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                placeholder="Enter password (min 6 characters)"
               />
             </div>
             

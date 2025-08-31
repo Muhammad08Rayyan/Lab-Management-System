@@ -3,6 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 
 interface Address {
   street: string;
@@ -170,17 +171,20 @@ export default function PatientDashboard() {
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-purple-700 p-3 rounded-xl shadow-lg">
-                  <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
+                <Image 
+                  src="/logo.png" 
+                  alt="Health Inn Services Laboratory" 
+                  width={40}
+                  height={40}
+                  className="object-contain" 
+                />
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>
               </div>
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                   Patient Portal
                 </h1>
+                <p className="text-xs text-gray-500 mt-1">Health Inn Services Laboratory</p>
                 <p className="text-sm text-gray-600">
                   {patientProfile ? `Patient ID: ${patientProfile.patientId}` : 'Your Health Dashboard'}
                 </p>

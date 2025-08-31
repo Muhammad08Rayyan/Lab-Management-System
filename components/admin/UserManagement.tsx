@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Modal, { ConfirmModal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { FormField, Label, Input, Select, Button, Alert } from '@/components/ui/FormComponents';
 
@@ -43,6 +43,14 @@ export default function UserManagement() {
   const [formLoading, setFormLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [allUsersCount, setAllUsersCount] = useState(0);
+  const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
+  const usersPerPage = 20;
   const [createFormData, setCreateFormData] = useState({
     firstName: '',
     lastName: '',
@@ -52,26 +60,53 @@ export default function UserManagement() {
     role: 'patient'
   });
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async (page = currentPage, search = searchTerm, role = filterRole) => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/users');
+      
+      const searchParams = new URLSearchParams({
+        page: page.toString(),
+        limit: usersPerPage.toString(),
+        ...(search && { search }),
+        ...(role && { role })
+      });
+      
+      const response = await fetch(`/api/admin/users?${searchParams}`);
       if (!response.ok) {
         throw new Error('Failed to fetch users');
       }
       const data = await response.json();
-      setUsers(data.users);
+      setUsers(data.users || []);
+      setTotalPages(data.pagination?.pages || 1);
+      setTotalUsers(data.pagination?.total || 0);
+      setAllUsersCount(data.totalUsers || 0);
+      setRoleCounts(data.roleCounts || {});
+      setCurrentPage(page);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, searchTerm, filterRole, usersPerPage]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchUsers(1, searchTerm, filterRole);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, fetchUsers, filterRole]);
+
+  // Filter role change effect
+  useEffect(() => {
+    fetchUsers(1, searchTerm, filterRole);
+  }, [filterRole, fetchUsers, searchTerm]);
 
   const handleDeleteUser = (user: User) => {
     setUserToDelete(user);
@@ -92,7 +127,7 @@ export default function UserManagement() {
         throw new Error(errorData.error || 'Failed to delete user');
       }
 
-      setUsers(users.filter(user => user._id !== userToDelete._id));
+      fetchUsers(); // Refresh the current page
       setError('');
       setShowDeleteConfirm(false);
       setUserToDelete(null);
@@ -118,9 +153,7 @@ export default function UserManagement() {
         throw new Error('Failed to update user role');
       }
 
-      setUsers(users.map(user => 
-        user._id === userId ? { ...user, role: newRole as User['role'] } : user
-      ));
+      fetchUsers(); // Refresh to get updated list
       setEditingUser(null);
       setError('');
     } catch (error: unknown) {
@@ -176,8 +209,8 @@ export default function UserManagement() {
         throw new Error(errorData.error || 'Failed to create user');
       }
 
-      const data = await response.json();
-      setUsers([data.user, ...users]);
+      await response.json();
+      fetchUsers(); // Refresh to get updated list
       setShowCreateForm(false);
       resetForm();
     } catch (error: unknown) {
@@ -206,21 +239,11 @@ export default function UserManagement() {
     resetForm();
   };
 
-  const filteredUsers = users.filter(user => {
-    // Hide admin users from the list
-    if (user.role === 'admin') {
-      return false;
-    }
-    
-    const matchesSearch = 
-      user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesRole = filterRole === '' || user.role === filterRole;
-    
-    return matchesSearch && matchesRole;
-  });
+  const handlePageChange = (page: number) => {
+    fetchUsers(page, searchTerm, filterRole);
+  };
+
+  // Remove client-side filtering since we're doing server-side filtering now
 
   if (loading) {
     return (
@@ -254,7 +277,7 @@ export default function UserManagement() {
               Add User
             </Button>
             <Button
-              onClick={fetchUsers}
+              onClick={() => fetchUsers()}
               variant="ghost"
               className="border border-input bg-background hover:bg-accent shadow-sm"
             >
@@ -291,8 +314,18 @@ export default function UserManagement() {
               placeholder="Search by name, email, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12"
+              className="pl-12 pr-10"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center"
+              >
+                <svg className="h-5 w-5 text-gray-400 hover:text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -313,7 +346,7 @@ export default function UserManagement() {
               </svg>
               All Users
               <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                {users.filter(u => u.role !== 'admin').length}
+                {allUsersCount}
               </span>
             </button>
             
@@ -330,7 +363,7 @@ export default function UserManagement() {
               </svg>
               Lab Tech
               <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                {users.filter(u => u.role === 'lab_tech').length}
+                {roleCounts.lab_tech || 0}
               </span>
             </button>
 
@@ -347,7 +380,7 @@ export default function UserManagement() {
               </svg>
               Reception
               <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                {users.filter(u => u.role === 'reception').length}
+                {roleCounts.reception || 0}
               </span>
             </button>
 
@@ -364,7 +397,7 @@ export default function UserManagement() {
               </svg>
               Patient
               <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                {users.filter(u => u.role === 'patient').length}
+                {roleCounts.patient || 0}
               </span>
             </button>
 
@@ -381,7 +414,7 @@ export default function UserManagement() {
               </svg>
               Doctor
               <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                {users.filter(u => u.role === 'doctor').length}
+                {roleCounts.doctor || 0}
               </span>
             </button>
           </div>
@@ -543,7 +576,7 @@ export default function UserManagement() {
             </tr>
           </thead>
           <tbody className="bg-card divide-y divide-border">
-            {filteredUsers.map((user) => (
+            {users.map((user) => (
               <tr key={user._id} className="hover:bg-accent/50 transition-colors duration-200">
                 <td className="px-6 py-5 whitespace-nowrap">
                   <div>
@@ -619,7 +652,7 @@ export default function UserManagement() {
         </table>
       </div>
 
-      {filteredUsers.length === 0 && (
+      {users.length === 0 && (
         <div className="text-center py-12">
           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -632,12 +665,99 @@ export default function UserManagement() {
       )}
 
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="px-6 py-4 bg-card border-t border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-input text-sm font-medium rounded-md text-card-foreground bg-card hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-input text-sm font-medium rounded-md text-card-foreground bg-card hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Showing page <span className="font-medium text-foreground">{currentPage}</span> of{' '}
+                  <span className="font-medium text-foreground">{totalPages}</span>
+                  {' '}({totalUsers} total users)
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-input bg-card text-sm font-medium text-muted-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  
+                  {/* Page Numbers */}
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                          currentPage === pageNum
+                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                            : 'bg-card border-input text-muted-foreground hover:bg-accent'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  
+                  <button
+                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-input bg-card text-sm font-medium text-muted-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Next</span>
+                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="px-6 py-4 bg-muted/30 border-t border-border">
         <div className="flex justify-between items-center text-sm">
           <div className="flex items-center space-x-4">
             <span className="text-muted-foreground">
-              <span className="font-semibold text-foreground">{users.filter(u => u.role !== 'admin').length}</span> total users
+              Showing <span className="font-semibold text-foreground">{users.length}</span> of <span className="font-semibold text-foreground">{totalUsers}</span> users (from {allUsersCount} total)
+              {(searchTerm || filterRole) && <span className="text-blue-600 ml-2">(filtered{searchTerm && ` by "${searchTerm}"`}{filterRole && ` for role "${ROLE_LABELS[filterRole as keyof typeof ROLE_LABELS]}"`})</span>}
             </span>
           </div>
           <div className="text-xs text-muted-foreground">

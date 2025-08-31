@@ -19,8 +19,8 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lab Management System",
-  description: "Comprehensive lab management system for diagnostic workflows",
+  title: "Health Inn Services Laboratory",
+  description: "Professional diagnostic laboratory services with comprehensive testing solutions",
 };
 
 export default function RootLayout({

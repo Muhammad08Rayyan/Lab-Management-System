@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import User from '@/lib/models/User';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -15,14 +15,64 @@ export async function GET() {
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    const role = searchParams.get('role') || '';
+    const skip = (page - 1) * limit;
+
     await connectDB();
 
-    const users = await User.find({})
+    // Build query object - always exclude admin users
+    const query: Record<string, unknown> = { role: { $ne: 'admin' } };
+    
+    if (search) {
+      query.$or = [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    if (role) {
+      query.role = role;
+    }
+
+    const users = await User.find(query)
       .select('-password')
+      .skip(skip)
+      .limit(limit)
       .sort({ createdAt: -1 })
       .lean();
 
-    return NextResponse.json({ users });
+    const total = await User.countDocuments(query);
+
+    // Get role counts for filter buttons
+    const roleCounts = await User.aggregate([
+      { $match: { role: { $ne: 'admin' } } }, // Exclude admin users
+      { $group: { _id: '$role', count: { $sum: 1 } } }
+    ]);
+
+    const roleCountsObj = roleCounts.reduce((acc, item) => {
+      acc[item._id] = item.count;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Get total count excluding admin users
+    const totalUsersExcludingAdmin = await User.countDocuments({ role: { $ne: 'admin' } });
+
+    return NextResponse.json({ 
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      },
+      roleCounts: roleCountsObj,
+      totalUsers: totalUsersExcludingAdmin
+    });
 
   } catch (error: unknown) {
     console.error('Get users error:', error);

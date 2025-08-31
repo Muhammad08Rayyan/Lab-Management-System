@@ -101,7 +101,7 @@ export async function PATCH(
       updateData,
       { new: true, runValidators: true }
     ).populate([
-      { path: 'patient', select: 'firstName lastName email phone patientId' },
+      { path: 'patient', select: 'firstName lastName email phone patientId dateOfBirth gender' },
       { path: 'doctor', select: 'firstName lastName email' },
       { path: 'tests', select: 'code name price' },
       { path: 'packages', select: 'packageName price' },
@@ -160,7 +160,7 @@ export async function PUT(
     // Validate status transitions
     if (orderStatus && orderStatus !== order.orderStatus) {
       const validTransitions: Record<string, string[]> = {
-        'pending': ['confirmed', 'cancelled'],
+        'pending': ['confirmed', 'in_progress', 'cancelled'],
         'confirmed': ['in_progress', 'cancelled'],
         'in_progress': ['completed', 'cancelled'],
         'completed': [],
@@ -193,7 +193,7 @@ export async function PUT(
       updateData,
       { new: true, runValidators: true }
     ).populate([
-      { path: 'patient', select: 'firstName lastName email phone patientId' },
+      { path: 'patient', select: 'firstName lastName email phone patientId dateOfBirth gender' },
       { path: 'doctor', select: 'firstName lastName email' },
       { path: 'tests', select: 'code name price' },
       { path: 'packages', select: 'packageName price' },

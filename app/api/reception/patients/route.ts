@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import User from '@/lib/models/User';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -15,15 +15,44 @@ export async function GET() {
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const search = searchParams.get('search') || '';
+    const skip = (page - 1) * limit;
+
     await connectDB();
 
-    // Only fetch users with patient role
-    const users = await User.find({ role: 'patient' })
+    // Build query for patient users only
+    const query: Record<string, unknown> = { role: 'patient' };
+    
+    if (search) {
+      query.$or = [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const users = await User.find(query)
       .select('-password')
+      .skip(skip)
+      .limit(limit)
       .sort({ createdAt: -1 })
       .lean();
 
-    return NextResponse.json({ users });
+    const total = await User.countDocuments(query);
+
+    return NextResponse.json({ 
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
 
   } catch (error: unknown) {
     console.error('Get patient users error:', error);
@@ -45,7 +74,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { firstName, lastName, email, phone, password } = await req.json();
+    const { 
+      firstName, 
+      lastName, 
+      email, 
+      phone, 
+      password,
+      dateOfBirth,
+      gender,
+      address,
+      emergencyContact,
+      medicalHistory
+    } = await req.json();
 
     // Validation
     if (!firstName || !lastName || !email || !password) {
@@ -67,7 +107,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create new patient user (role is locked to patient)
-    const user = await User.create({
+    const userData: Record<string, unknown> = {
       firstName,
       lastName,
       email,
@@ -75,7 +115,16 @@ export async function POST(req: NextRequest) {
       password,
       role: 'patient',
       isActive: true,
-    });
+    };
+
+    // Add optional fields if provided
+    if (dateOfBirth) userData.dateOfBirth = new Date(dateOfBirth);
+    if (gender) userData.gender = gender;
+    if (address) userData.address = address;
+    if (emergencyContact) userData.emergencyContact = emergencyContact;
+    if (medicalHistory) userData.medicalHistory = medicalHistory;
+
+    const user = await User.create(userData);
 
     // Return user without password
     const userWithoutPassword = user.toObject();

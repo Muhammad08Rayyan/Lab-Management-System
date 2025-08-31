@@ -9,6 +9,21 @@ export interface IUser extends Document {
   lastName: string;
   phone?: string;
   isActive: boolean;
+  dateOfBirth?: Date;
+  gender?: 'male' | 'female' | 'other';
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    country?: string;
+  };
+  emergencyContact?: {
+    name?: string;
+    phone?: string;
+    relationship?: string;
+  };
+  medicalHistory?: string[];
   comparePassword(candidatePassword: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -51,7 +66,30 @@ const UserSchema = new Schema<IUser>({
   isActive: {
     type: Boolean,
     default: true
-  }
+  },
+  dateOfBirth: {
+    type: Date
+  },
+  gender: {
+    type: String,
+    enum: ['male', 'female', 'other']
+  },
+  address: {
+    street: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    zipCode: { type: String, trim: true },
+    country: { type: String, trim: true }
+  },
+  emergencyContact: {
+    name: { type: String, trim: true },
+    phone: { type: String, trim: true },
+    relationship: { type: String, trim: true }
+  },
+  medicalHistory: [{
+    type: String,
+    trim: true
+  }]
 }, {
   timestamps: true
 });
