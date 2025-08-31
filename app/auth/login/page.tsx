@@ -71,6 +71,7 @@ export default function LoginPage() {
             width={80}
             height={80}
             className="object-contain"
+            priority
           />
         </div>
         <h2 className="mt-6 text-center text-3xl font-bold text-foreground">
