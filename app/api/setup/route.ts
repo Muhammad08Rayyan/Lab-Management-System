@@ -49,14 +49,6 @@ export async function POST() {
         firstName: 'John',
         lastName: 'Patient',
         phone: '+1234567893'
-      },
-      {
-        email: 'doctor@lab.com',
-        password: 'password123',
-        role: 'doctor',
-        firstName: 'Dr. Sarah',
-        lastName: 'Johnson',
-        phone: '+1234567894'
       }
     ];
 

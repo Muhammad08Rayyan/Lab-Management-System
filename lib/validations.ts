@@ -54,7 +54,6 @@ export const updateTestSchema = createTestSchema.partial().extend({
 // Test Order validations
 export const createTestOrderSchema = z.object({
   patient: objectIdSchema,
-  doctor: objectIdSchema.optional(),
   tests: z.array(objectIdSchema).optional(),
   packages: z.array(objectIdSchema).optional(),
   priority: z.enum(['normal', 'urgent', 'stat']).default('normal'),
@@ -145,7 +144,7 @@ export const searchSchema = z.object({
 
 // User validations
 export const updateUserRoleSchema = z.object({
-  role: z.enum(['admin', 'lab_tech', 'reception', 'patient', 'doctor'])
+  role: z.enum(['admin', 'lab_tech', 'reception', 'patient'])
 });
 
 export const updateUserStatusSchema = z.object({

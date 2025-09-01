@@ -27,10 +27,6 @@ interface TestOrder {
   sampleCollectionDate?: string;
   expectedReportDate?: string;
   notes?: string;
-  doctor?: {
-    firstName: string;
-    lastName: string;
-  };
 }
 
 interface TestResult {

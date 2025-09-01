@@ -20,7 +20,7 @@ export async function PUT(
 
     const { role } = await req.json();
 
-    if (!role || !['admin', 'lab_tech', 'reception', 'patient', 'doctor'].includes(role)) {
+    if (!role || !['admin', 'lab_tech', 'reception', 'patient'].includes(role)) {
       return NextResponse.json(
         { error: 'Invalid role specified' },
         { status: 400 }

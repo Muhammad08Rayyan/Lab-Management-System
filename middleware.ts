@@ -26,10 +26,6 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url));
     }
 
-    // Check if user is trying to access doctor routes
-    if (pathname.startsWith('/doctor') && token?.role !== 'doctor' && token?.role !== 'admin') {
-      return NextResponse.redirect(new URL('/unauthorized', req.url));
-    }
 
     return NextResponse.next();
   },

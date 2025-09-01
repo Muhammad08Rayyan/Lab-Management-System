@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!['admin', 'lab_tech', 'reception', 'patient', 'doctor'].includes(role)) {
+    if (!['admin', 'lab_tech', 'reception', 'patient'].includes(role)) {
       return NextResponse.json(
         { error: 'Invalid role specified' },
         { status: 400 }

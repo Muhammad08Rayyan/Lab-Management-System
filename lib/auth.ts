@@ -61,7 +61,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        const userObj = user as { role: 'admin' | 'lab_tech' | 'reception' | 'patient' | 'doctor'; firstName: string; lastName: string; phone: string; isActive: boolean };
+        const userObj = user as { role: 'admin' | 'lab_tech' | 'reception' | 'patient'; firstName: string; lastName: string; phone: string; isActive: boolean };
         token.role = userObj.role;
         token.firstName = userObj.firstName;
         token.lastName = userObj.lastName;

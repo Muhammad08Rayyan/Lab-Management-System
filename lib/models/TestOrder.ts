@@ -3,7 +3,6 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface ITestOrder extends Document {
   orderNumber: string;
   patient: mongoose.Types.ObjectId;
-  doctor?: mongoose.Types.ObjectId;
   tests: mongoose.Types.ObjectId[];
   packages: mongoose.Types.ObjectId[];
   totalAmount: number;
@@ -30,10 +29,6 @@ const TestOrderSchema = new Schema<ITestOrder>({
     type: Schema.Types.ObjectId,
     ref: 'Patient',
     required: [true, 'Patient is required']
-  },
-  doctor: {
-    type: Schema.Types.ObjectId,
-    ref: 'Doctor'
   },
   tests: [{
     type: Schema.Types.ObjectId,
@@ -97,7 +92,6 @@ const TestOrderSchema = new Schema<ITestOrder>({
 
 // Indexes for faster queries (orderNumber index is already created by unique: true)
 TestOrderSchema.index({ patient: 1 });
-TestOrderSchema.index({ doctor: 1 });
 TestOrderSchema.index({ orderStatus: 1 });
 TestOrderSchema.index({ paymentStatus: 1 });
 TestOrderSchema.index({ priority: 1 });

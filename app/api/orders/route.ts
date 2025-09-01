@@ -47,7 +47,6 @@ export async function GET(request: NextRequest) {
 
     const orders = await TestOrder.find(query)
       .populate('patient', 'firstName lastName email phone patientId dateOfBirth gender')
-      .populate('doctor', 'firstName lastName email')
       .populate('tests', 'code name price')
       .populate('packages', 'packageName price')
       .populate('createdBy', 'firstName lastName email')
@@ -80,14 +79,13 @@ export async function POST(request: NextRequest) {
     }
 
     const userRole = (session.user as { role: string }).role;
-    if (!['admin', 'reception', 'doctor'].includes(userRole)) {
+    if (!['admin', 'reception'].includes(userRole)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const body = await request.json();
     const {
       patient,
-      doctor,
       tests = [],
       packages = [],
       priority = 'normal',
@@ -196,7 +194,6 @@ export async function POST(request: NextRequest) {
 
     const order = new TestOrder({
       patient: patientRecord._id,
-      doctor,
       tests,
       packages: packages || [],
       totalAmount,
@@ -223,7 +220,6 @@ export async function POST(request: NextRequest) {
     // Populate the order before returning
     await order.populate([
       { path: 'patient', select: 'firstName lastName email phone patientId' },
-      { path: 'doctor', select: 'firstName lastName email' },
       { path: 'tests', select: 'testCode testName price' },
       { path: 'packages', select: 'packageName packagePrice' },
       { path: 'createdBy', select: 'firstName lastName email' }

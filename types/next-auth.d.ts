@@ -6,7 +6,7 @@ declare module 'next-auth' {
       id: string;
       email: string;
       name: string;
-      role: 'admin' | 'lab_tech' | 'reception' | 'patient' | 'doctor';
+      role: 'admin' | 'lab_tech' | 'reception' | 'patient';
       firstName: string;
       lastName: string;
       phone?: string;
@@ -18,7 +18,7 @@ declare module 'next-auth' {
     id: string;
     email: string;
     name: string;
-    role: 'admin' | 'lab_tech' | 'reception' | 'patient' | 'doctor';
+    role: 'admin' | 'lab_tech' | 'reception' | 'patient';
     firstName: string;
     lastName: string;
     phone?: string;
@@ -28,7 +28,7 @@ declare module 'next-auth' {
 
 declare module 'next-auth/jwt' {
   interface JWT {
-    role: 'admin' | 'lab_tech' | 'reception' | 'patient' | 'doctor';
+    role: 'admin' | 'lab_tech' | 'reception' | 'patient';
     firstName: string;
     lastName: string;
     phone?: string;

@@ -21,10 +21,6 @@ interface TestResult {
     };
     createdAt: string;
     priority: string;
-    doctor?: {
-      firstName: string;
-      lastName: string;
-    };
   };
   test: {
     _id: string;

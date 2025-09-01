@@ -20,10 +20,6 @@ interface TestResult {
     };
     createdAt: string;
     priority: string;
-    doctor?: {
-      firstName: string;
-      lastName: string;
-    };
   };
   test: {
     _id: string;
@@ -299,11 +295,6 @@ export default function ReportGeneration() {
                           <p className="font-medium text-gray-900">
                             {orderInfo?.createdAt ? new Date(orderInfo.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}
                           </p>
-                          {orderInfo?.doctor && (
-                            <p className="text-sm text-gray-500">
-                              Dr. {orderInfo.doctor.firstName} {orderInfo.doctor.lastName}
-                            </p>
-                          )}
                         </div>
                       </div>
 

@@ -8,7 +8,7 @@ interface User {
   lastName: string;
   email: string;
   phone?: string;
-  role: 'admin' | 'lab_tech' | 'reception' | 'patient' | 'doctor';
+  role: 'admin' | 'lab_tech' | 'reception' | 'patient';
   createdAt: string;
 }
 

@@ -24,10 +24,6 @@ interface TestOrder {
   priority: string;
   createdAt: string;
   expectedReportDate?: string;
-  doctor?: {
-    firstName: string;
-    lastName: string;
-  };
 }
 
 export default function WorkQueue() {
@@ -229,14 +225,6 @@ export default function WorkQueue() {
                     </p>
                   </div>
                   
-                  {order.doctor && (
-                    <div>
-                      <p className="text-sm text-gray-600">Referring Doctor</p>
-                      <p className="font-medium text-gray-900">
-                        Dr. {order.doctor.firstName} {order.doctor.lastName}
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 <div className="mb-4">

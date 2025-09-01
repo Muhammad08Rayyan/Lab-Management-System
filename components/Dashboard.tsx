@@ -28,8 +28,6 @@ export default function Dashboard() {
         return '/reception';
       case 'patient':
         return '/patient';
-      case 'doctor':
-        return '/doctor';
       default:
         return '/auth/login';
     }

@@ -43,9 +43,6 @@ export default function LoginPage() {
             case 'patient':
               router.push('/patient');
               break;
-            case 'doctor':
-              router.push('/doctor');
-              break;
             default:
               router.push('/dashboard');
           }

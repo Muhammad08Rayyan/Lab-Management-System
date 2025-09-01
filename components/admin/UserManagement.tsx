@@ -10,7 +10,7 @@ interface User {
   lastName: string;
   email: string;
   phone?: string;
-  role: 'admin' | 'lab_tech' | 'reception' | 'patient' | 'doctor';
+  role: 'admin' | 'lab_tech' | 'reception' | 'patient';
   createdAt: string;
 }
 
@@ -19,7 +19,6 @@ const ROLE_COLORS = {
   lab_tech: 'bg-green-50 text-green-700 border-green-200',
   reception: 'bg-blue-50 text-blue-700 border-blue-200',
   patient: 'bg-purple-50 text-purple-700 border-purple-200',
-  doctor: 'bg-yellow-50 text-yellow-700 border-yellow-200',
 };
 
 const ROLE_LABELS = {
@@ -27,7 +26,6 @@ const ROLE_LABELS = {
   lab_tech: 'Lab Tech',
   reception: 'Reception',
   patient: 'Patient',
-  doctor: 'Doctor',
 };
 
 export default function UserManagement() {
@@ -401,22 +399,6 @@ export default function UserManagement() {
               </span>
             </button>
 
-            <button
-              onClick={() => setFilterRole('doctor')}
-              className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                filterRole === 'doctor'
-                  ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white shadow-md'
-                  : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 hover:shadow-sm'
-              }`}
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-              Doctor
-              <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                {roleCounts.doctor || 0}
-              </span>
-            </button>
           </div>
         </div>
       </div>
@@ -508,7 +490,6 @@ export default function UserManagement() {
               >
                 <option value="">Select a role</option>
                 <option value="patient">Patient</option>
-                <option value="doctor">Doctor</option>
                 <option value="lab_tech">Lab Technician</option>
                 <option value="reception">Reception</option>
               </Select>
@@ -592,7 +573,7 @@ export default function UserManagement() {
                 <td className="px-6 py-5 whitespace-nowrap">
                   {editingUser?._id === user._id ? (
                     <div className="flex flex-wrap gap-2">
-                      {['lab_tech', 'reception', 'patient', 'doctor'].map((roleOption) => (
+                      {['lab_tech', 'reception', 'patient'].map((roleOption) => (
                         <button
                           key={roleOption}
                           onClick={() => handleRoleChange(user._id, roleOption)}
