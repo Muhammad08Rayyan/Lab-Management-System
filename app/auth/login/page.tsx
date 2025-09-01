@@ -153,7 +153,7 @@ export default function LoginPage() {
 
             <div className="text-center">
               <p className="text-sm text-muted-foreground">
-                Powered By{' '}
+                Developed By{' '}
                 <a 
                   href="https://softsols.it.com" 
                   target="_blank" 

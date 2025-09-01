@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Modal, { ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { FormField, Label, Input, Select, Button, Alert, Textarea } from '@/components/ui/FormComponents';
 import PaymentModal from './PaymentModal';
@@ -80,7 +81,6 @@ export default function TestAssignment() {
     patientId: '',
     priority: 'normal' as 'normal' | 'urgent' | 'stat',
     notes: '',
-    sampleCollectionDate: new Date().toISOString().split('T')[0],
   });
 
   useEffect(() => {
@@ -181,10 +181,17 @@ export default function TestAssignment() {
 
   const fetchOrders = async () => {
     try {
-      const response = await fetch('/api/orders');
+      // Add cache busting parameter
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/orders?_t=${timestamp}`, {
+        cache: 'no-store'
+      });
       if (response.ok) {
         const data = await response.json();
         setOrders(data.orders || []);
+        console.log('Orders refreshed successfully with', data.orders?.length || 0, 'orders'); // Debug log
+      } else {
+        console.error('Failed to fetch orders:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -202,10 +209,6 @@ export default function TestAssignment() {
       errors.tests = 'Please select at least one test';
     }
     
-    if (!orderForm.sampleCollectionDate) {
-      errors.sampleCollectionDate = 'Sample collection date is required';
-    }
-    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -220,8 +223,8 @@ export default function TestAssignment() {
     setSuccess('');
     
     try {
-      // Set default expected report date (3 days from sample collection date)
-      const expectedDate = new Date(orderForm.sampleCollectionDate);
+      // Set default expected report date (3 days from today)
+      const expectedDate = new Date();
       expectedDate.setDate(expectedDate.getDate() + 3);
       
       const orderData = {
@@ -229,7 +232,6 @@ export default function TestAssignment() {
         tests: selectedTests,
         packages: [], // Empty array for packages
         priority: orderForm.priority,
-        sampleCollectionDate: orderForm.sampleCollectionDate,
         expectedReportDate: expectedDate.toISOString(),
         notes: orderForm.notes
       };
@@ -269,7 +271,6 @@ export default function TestAssignment() {
       patientId: '',
       priority: 'normal',
       notes: '',
-      sampleCollectionDate: new Date().toISOString().split('T')[0],
     });
     setFormErrors({});
     setError('');
@@ -281,14 +282,27 @@ export default function TestAssignment() {
   };
 
   const handleProcessPayment = (order: TestOrder) => {
+    console.log('Processing payment for order:', {
+      id: order?._id,
+      orderNumber: order?.orderNumber,
+      totalAmount: order?.totalAmount,
+      paidAmount: order?.paidAmount,
+      patient: order?.patient,
+      tests: order?.tests?.length
+    });
     setCurrentOrder(order);
     setShowPaymentModal(true);
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = async () => {
+    console.log('Payment success callback triggered');
     setShowPaymentModal(false);
     setCurrentOrder(null);
-    fetchOrders(); // Refresh orders to show updated payment status
+    
+    // Immediately refresh orders - no need for timeout
+    console.log('Refreshing orders after payment success...');
+    await fetchOrders(); // Refresh orders to show updated payment status
+    
     setSuccess('Payment processed successfully!');
     setTimeout(() => setSuccess(''), 5000);
   };
@@ -298,7 +312,9 @@ export default function TestAssignment() {
   };
 
   const handleShowOrderReceipt = (order: TestOrder) => {
-    // Navigate to the separate receipt page
+    // Navigate to the receipt page with proper order ID
+    console.log('Opening receipt for order ID:', order._id);
+    // Open in new tab
     window.open(`/reception/receipt?orderId=${order._id}`, '_blank');
   };
 
@@ -432,7 +448,10 @@ export default function TestAssignment() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-foreground">
-                      {order.patient?.firstName} {order.patient?.lastName}
+                      {order.patient 
+                        ? `${order.patient.firstName} ${order.patient.lastName}`
+                        : 'Unknown Patient'
+                      }
                     </div>
                     <div className="text-sm text-muted-foreground">{order.patient?.email}</div>
                   </td>
@@ -670,18 +689,6 @@ export default function TestAssignment() {
                       </select>
                     </div>
 
-                    {/* Sample Collection Date */}
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Sample Collection Date
-                      </label>
-                      <input
-                        type="date"
-                        value={orderForm.sampleCollectionDate}
-                        onChange={(e) => setOrderForm({ ...orderForm, sampleCollectionDate: e.target.value })}
-                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
-                      />
-                    </div>
 
                     {/* Notes */}
                     <div>
@@ -799,13 +806,6 @@ export default function TestAssignment() {
                     )}
                   </div>
 
-                  {/* Search results summary */}
-                  {hasSearched && tests.length > 0 && (
-                    <div className="mt-2 text-xs text-gray-500">
-                      Found {tests.length} test{tests.length !== 1 ? 's' : ''} for &quot;{searchTerm}&quot;
-                      {totalTestPages > 1 && <span className="text-gray-600"> (page {currentTestPage} of {totalTestPages})</span>}
-                    </div>
-                  )}
                   
                   {/* Test Pagination */}
                   {totalTestPages > 1 && hasSearched && (
@@ -928,11 +928,6 @@ export default function TestAssignment() {
             <span className="text-muted-foreground">
               <span className="font-semibold text-foreground">{orders.length}</span> total orders
             </span>
-            {hasSearched && (
-              <span className="text-muted-foreground">
-                <span className="font-semibold text-foreground">{tests.length}</span> tests found
-              </span>
-            )}
             <span className="text-muted-foreground">
               <span className="font-semibold text-foreground">{patients.length}</span> patients
             </span>
@@ -1057,16 +1052,6 @@ export default function TestAssignment() {
                       </Select>
                     </FormField>
 
-                    <FormField error={formErrors.sampleCollectionDate}>
-                      <Label htmlFor="sampleDate" required>Sample Collection Date</Label>
-                      <Input
-                        id="sampleDate"
-                        type="date"
-                        value={orderForm.sampleCollectionDate}
-                        onChange={(e) => setOrderForm({ ...orderForm, sampleCollectionDate: e.target.value })}
-                        error={!!formErrors.sampleCollectionDate}
-                      />
-                    </FormField>
 
                     <FormField>
                       <Label htmlFor="notes">Notes</Label>
@@ -1202,13 +1187,6 @@ export default function TestAssignment() {
                   )}
                 </div>
 
-                {/* Search results summary */}
-                {hasSearched && tests.length > 0 && (
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    Found {tests.length} test{tests.length !== 1 ? 's' : ''} for &quot;{searchTerm}&quot;
-                    {totalTestPages > 1 && <span className="text-muted-foreground"> (page {currentTestPage} of {totalTestPages})</span>}
-                  </div>
-                )}
                 
                 {/* Test Pagination */}
                 {totalTestPages > 1 && hasSearched && (
@@ -1322,7 +1300,7 @@ export default function TestAssignment() {
       </Modal>
 
       {/* Payment Modal */}
-      {showPaymentModal && currentOrder && (
+      {showPaymentModal && currentOrder && currentOrder._id && (
         <PaymentModal
           isOpen={showPaymentModal}
           onClose={() => {
@@ -1331,15 +1309,17 @@ export default function TestAssignment() {
           }}
           onPaymentSuccess={handlePaymentSuccess}
           orderDetails={{
-            _id: currentOrder._id,
-            orderNumber: currentOrder.orderNumber,
-            totalAmount: currentOrder.totalAmount,
-            paidAmount: currentOrder.paidAmount || 0,
-            patientName: `${currentOrder.patient.firstName} ${currentOrder.patient.lastName}`,
-            tests: currentOrder.tests.map(test => ({
-              testName: test.name,
-              price: test.price
-            }))
+            _id: currentOrder?._id || '',
+            orderNumber: currentOrder?.orderNumber || '',
+            totalAmount: currentOrder?.totalAmount || 0,
+            paidAmount: currentOrder?.paidAmount || 0,
+            patientName: currentOrder?.patient 
+              ? `${currentOrder.patient.firstName} ${currentOrder.patient.lastName}`
+              : 'Unknown Patient',
+            tests: currentOrder?.tests?.map(test => ({
+              testName: test?.name || 'Unknown Test',
+              price: test?.price || 0
+            })) || []
           }}
         />
       )}

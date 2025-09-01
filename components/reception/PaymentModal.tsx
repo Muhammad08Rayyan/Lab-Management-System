@@ -26,7 +26,18 @@ export default function PaymentModal({ isOpen, onClose, onPaymentSuccess, orderD
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const remainingAmount = orderDetails.totalAmount - orderDetails.paidAmount;
+  // Add safety checks for undefined values
+  const totalAmount = orderDetails?.totalAmount || 0;
+  const paidAmount = orderDetails?.paidAmount || 0;
+  const remainingAmount = totalAmount - paidAmount;
+  
+  // Debug logging
+  console.log('Payment modal order details:', {
+    orderDetails,
+    totalAmount,
+    paidAmount,
+    remainingAmount
+  });
 
   const handleProcessPayment = async () => {
     setLoading(true);
@@ -41,7 +52,7 @@ export default function PaymentModal({ isOpen, onClose, onPaymentSuccess, orderD
         body: JSON.stringify({
           paymentStatus: 'paid',
           paymentMethod: paymentMethod,
-          paidAmount: orderDetails.totalAmount
+          paidAmount: totalAmount
         }),
       });
 
@@ -57,8 +68,12 @@ export default function PaymentModal({ isOpen, onClose, onPaymentSuccess, orderD
         throw new Error(errorMessage);
       }
 
-      onPaymentSuccess();
+      const result = await response.json();
+      console.log('Payment processed successfully:', result);
+      
+      // Close modal first, then trigger success callback
       onClose();
+      onPaymentSuccess();
     } catch (error) {
       console.error('Payment error:', error);
       setError(error instanceof Error ? error.message : 'Failed to process payment');
@@ -82,15 +97,15 @@ export default function PaymentModal({ isOpen, onClose, onPaymentSuccess, orderD
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span>Order Number:</span>
-              <span className="font-medium">#{orderDetails.orderNumber}</span>
+              <span className="font-medium">#{orderDetails?.orderNumber || 'N/A'}</span>
             </div>
             <div className="flex justify-between">
               <span>Patient:</span>
-              <span className="font-medium">{orderDetails.patientName}</span>
+              <span className="font-medium">{orderDetails?.patientName || 'Unknown Patient'}</span>
             </div>
             <div className="flex justify-between">
               <span>Tests:</span>
-              <span className="font-medium">{orderDetails.tests.length} test(s)</span>
+              <span className="font-medium">{orderDetails?.tests?.length || 0} test(s)</span>
             </div>
             <div className="border-t pt-2 mt-2">
               <div className="flex justify-between text-base font-semibold">

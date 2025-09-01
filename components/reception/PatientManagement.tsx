@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Modal, { ModalBody, ModalFooter } from '@/components/ui/Modal';
 
 interface User {
   _id: string;
@@ -31,6 +32,7 @@ export default function PatientManagement() {
     phone: '',
     password: '',
   });
+  const [createError, setCreateError] = useState('');
 
   const fetchUsers = useCallback(async (page = currentPage, search = searchTerm) => {
     try {
@@ -74,6 +76,8 @@ export default function PatientManagement() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCreateError('');
+    
     try {
       const response = await fetch('/api/reception/patients', {
         method: 'POST',
@@ -97,13 +101,13 @@ export default function PatientManagement() {
         phone: '',
         password: '',
       });
-      setError('');
+      setCreateError('');
       
       // Refresh users list after creating a new patient user
       fetchUsers();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      setError(errorMessage);
+      setCreateError(errorMessage);
     }
   };
 
@@ -201,99 +205,105 @@ export default function PatientManagement() {
       </div>
 
       {/* Create Patient Modal */}
-      {showCreateForm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Create New Patient</h3>
-                <button
-                  onClick={() => setShowCreateForm(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      <Modal 
+        isOpen={showCreateForm}
+        onClose={() => {
+          setShowCreateForm(false);
+          setCreateError('');
+        }}
+        title="Create New Patient"
+        size="md"
+      >
+        <form onSubmit={handleCreateUser}>
+          <ModalBody>
+            {createError && (
+              <div className="mb-4 bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-[var(--radius-md)] relative">
+                <div className="flex items-center">
+                  <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
-                </button>
+                  {createError}
+                </div>
               </div>
-              
-              <form onSubmit={handleCreateUser} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">First Name</label>
-                    <input
-                      type="text"
-                      value={createFormData.firstName}
-                      onChange={(e) => setCreateFormData({...createFormData, firstName: e.target.value})}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                    <input
-                      type="text"
-                      value={createFormData.lastName}
-                      onChange={(e) => setCreateFormData({...createFormData, lastName: e.target.value})}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                      required
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <input
-                    type="email"
-                    value={createFormData.email}
-                    onChange={(e) => setCreateFormData({...createFormData, email: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone</label>
-                  <input
-                    type="tel"
-                    value={createFormData.phone}
-                    onChange={(e) => setCreateFormData({...createFormData, phone: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Password</label>
-                  <input
-                    type="password"
-                    value={createFormData.password}
-                    onChange={(e) => setCreateFormData({...createFormData, password: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    required
-                    minLength={6}
-                  />
-                </div>
-                
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateForm(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium"
-                  >
-                    Create Patient
-                  </button>
-                </div>
-              </form>
+            )}
+            
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">First Name</label>
+                <input
+                  type="text"
+                  value={createFormData.firstName}
+                  onChange={(e) => setCreateFormData({...createFormData, firstName: e.target.value})}
+                  className="w-full px-3 py-2 border border-input rounded-[var(--radius-md)] bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Last Name</label>
+                <input
+                  type="text"
+                  value={createFormData.lastName}
+                  onChange={(e) => setCreateFormData({...createFormData, lastName: e.target.value})}
+                  className="w-full px-3 py-2 border border-input rounded-[var(--radius-md)] bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  required
+                />
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground mb-2">Email</label>
+              <input
+                type="email"
+                value={createFormData.email}
+                onChange={(e) => setCreateFormData({...createFormData, email: e.target.value})}
+                className="w-full px-3 py-2 border border-input rounded-[var(--radius-md)] bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                required
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground mb-2">Phone</label>
+              <input
+                type="tel"
+                value={createFormData.phone}
+                onChange={(e) => setCreateFormData({...createFormData, phone: e.target.value})}
+                className="w-full px-3 py-2 border border-input rounded-[var(--radius-md)] bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground mb-2">Password</label>
+              <input
+                type="password"
+                value={createFormData.password}
+                onChange={(e) => setCreateFormData({...createFormData, password: e.target.value})}
+                className="w-full px-3 py-2 border border-input rounded-[var(--radius-md)] bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                required
+                minLength={6}
+              />
+            </div>
+          </ModalBody>
+          
+          <ModalFooter>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreateForm(false);
+                setCreateError('');
+              }}
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-[var(--radius-md)] transition-colors duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-[var(--radius-md)] text-sm font-medium shadow-[var(--shadow-sm)] transition-all duration-200"
+            >
+              Create Patient
+            </button>
+          </ModalFooter>
+        </form>
+      </Modal>
 
       {/* Patients Table */}
       <div className="overflow-x-auto bg-white">

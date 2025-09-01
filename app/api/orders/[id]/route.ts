@@ -11,7 +11,9 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
+    console.log('Session for order fetch:', session ? 'exists' : 'null');
     if (!session) {
+      console.log('No session found - unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -25,7 +27,6 @@ export async function GET(
 
     const order = await TestOrder.findById(id)
       .populate('patient', 'firstName lastName email phone patientId dateOfBirth gender address')
-      .populate('doctor', 'firstName lastName email phone')
       .populate('tests', 'code name price')
       .populate('packages', 'packageName price tests')
       .populate('createdBy', 'firstName lastName email');
@@ -46,23 +47,31 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    console.log('PATCH payment processing started');
+    
     const session = await getServerSession(authOptions);
     if (!session) {
+      console.log('No session found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const userRole = (session.user as { role: string }).role;
     if (!['admin', 'reception', 'lab_tech'].includes(userRole)) {
+      console.log('Insufficient permissions:', userRole);
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const { id } = await params;
+    console.log('Processing payment for order ID:', id);
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log('Invalid ObjectId format:', id);
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
 
     const body = await request.json();
+    console.log('Payment data received:', body);
+    
     const {
       orderStatus,
       priority,
@@ -74,8 +83,10 @@ export async function PATCH(
       paymentStatus
     } = body;
 
+    console.log('Connecting to database...');
     await connectDB();
 
+    console.log('Finding order...');
     const order = await TestOrder.findById(id);
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -96,17 +107,19 @@ export async function PATCH(
       updateData.paidAmount = Math.max(0, Math.min(paidAmount, order.totalAmount));
     }
 
+    console.log('Updating order with data:', updateData);
     const updatedOrder = await TestOrder.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
     ).populate([
       { path: 'patient', select: 'firstName lastName email phone patientId dateOfBirth gender' },
-      { path: 'doctor', select: 'firstName lastName email' },
       { path: 'tests', select: 'code name price' },
       { path: 'packages', select: 'packageName price' },
       { path: 'createdBy', select: 'firstName lastName email' }
     ]);
+    
+    console.log('Order updated successfully:', updatedOrder ? 'yes' : 'no');
 
     return NextResponse.json({ 
       message: 'Order updated successfully', 
@@ -194,7 +207,6 @@ export async function PUT(
       { new: true, runValidators: true }
     ).populate([
       { path: 'patient', select: 'firstName lastName email phone patientId dateOfBirth gender' },
-      { path: 'doctor', select: 'firstName lastName email' },
       { path: 'tests', select: 'code name price' },
       { path: 'packages', select: 'packageName price' },
       { path: 'createdBy', select: 'firstName lastName email' }

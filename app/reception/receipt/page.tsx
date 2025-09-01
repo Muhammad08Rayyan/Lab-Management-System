@@ -46,15 +46,29 @@ function ReceiptPageContent() {
       return;
     }
 
+    console.log('Fetching order details for ID:', orderId);
+
     try {
       setLoading(true);
-      const response = await fetch(`/api/orders/${orderId}`);
+      // Try the receipt endpoint first, fall back to orders endpoint
+      let response = await fetch(`/api/receipt/${orderId}`);
       
       if (!response.ok) {
-        throw new Error('Failed to fetch order details');
+        console.log('Receipt API failed, trying orders API');
+        response = await fetch(`/api/orders/${orderId}`);
+      }
+      
+      console.log('API Response status:', response.status);
+      console.log('API Response ok:', response.ok);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error:', errorData);
+        throw new Error(errorData.error || `Failed to fetch order details (${response.status})`);
       }
 
       const data = await response.json();
+      console.log('Order data received:', data.order ? 'exists' : 'null');
       setOrder(data.order);
     } catch (error) {
       console.error('Error fetching order:', error);

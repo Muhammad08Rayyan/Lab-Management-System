@@ -7,6 +7,15 @@ import Patient from '@/lib/models/Patient';
 import LabTest from '@/lib/models/LabTest';
 import TestPackage from '@/lib/models/TestPackage';
 import User from '@/lib/models/User';
+import mongoose from 'mongoose';
+
+// Ensure models are registered
+console.log('Models loaded:', {
+  TestOrder: !!mongoose.models.TestOrder,
+  Patient: !!mongoose.models.Patient,
+  LabTest: !!mongoose.models.LabTest,
+  User: !!mongoose.models.User
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,16 +54,45 @@ export async function GET(request: NextRequest) {
     if (priority) query.priority = priority;
     if (patientId) query.patient = patientId;
 
-    const orders = await TestOrder.find(query)
-      .populate('patient', 'firstName lastName email phone patientId dateOfBirth gender')
-      .populate('tests', 'code name price')
-      .populate('packages', 'packageName price')
-      .populate('createdBy', 'firstName lastName email')
-      .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 });
+    let orders;
+    try {
+      orders = await TestOrder.find(query)
+        .populate('patient', 'firstName lastName email phone patientId dateOfBirth gender')
+        .populate('tests', 'code name price')
+        .populate('packages', 'packageName price')
+        .populate('createdBy', 'firstName lastName email')
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+      console.log('Orders populated successfully');
+    } catch (populateError) {
+      console.error('Error during orders populate:', populateError);
+      // Fallback without populate
+      orders = await TestOrder.find(query)
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+      console.log('Fallback: fetched orders without populate');
+    }
 
     const total = await TestOrder.countDocuments(query);
+    
+    // Debug logging
+    console.log('Orders fetched:', orders.length);
+    if (orders.length > 0) {
+      console.log('First order debug:', {
+        orderId: orders[0]._id,
+        orderNumber: orders[0].orderNumber,
+        patientExists: !!orders[0].patient,
+        patientType: typeof orders[0].patient,
+        patientIsObjectId: orders[0].patient instanceof mongoose.Types.ObjectId,
+        patientId: orders[0].patient?._id || orders[0].patient,
+        patientData: orders[0].patient,
+        testsCount: orders[0].tests?.length || 0,
+        testsData: orders[0].tests,
+        totalAmount: orders[0].totalAmount
+      });
+    }
 
     return NextResponse.json({
       orders,
