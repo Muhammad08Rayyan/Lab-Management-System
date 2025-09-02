@@ -31,13 +31,6 @@ export default function PaymentModal({ isOpen, onClose, onPaymentSuccess, orderD
   const paidAmount = orderDetails?.paidAmount || 0;
   const remainingAmount = totalAmount - paidAmount;
   
-  // Debug logging
-  console.log('Payment modal order details:', {
-    orderDetails,
-    totalAmount,
-    paidAmount,
-    remainingAmount
-  });
 
   const handleProcessPayment = async () => {
     setLoading(true);
@@ -67,9 +60,6 @@ export default function PaymentModal({ isOpen, onClose, onPaymentSuccess, orderD
         }
         throw new Error(errorMessage);
       }
-
-      const result = await response.json();
-      console.log('Payment processed successfully:', result);
       
       // Close modal first, then trigger success callback
       onClose();

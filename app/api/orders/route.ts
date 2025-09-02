@@ -10,12 +10,6 @@ import User from '@/lib/models/User';
 import mongoose from 'mongoose';
 
 // Ensure models are registered
-console.log('Models loaded:', {
-  TestOrder: !!mongoose.models.TestOrder,
-  Patient: !!mongoose.models.Patient,
-  LabTest: !!mongoose.models.LabTest,
-  User: !!mongoose.models.User
-});
 
 export async function GET(request: NextRequest) {
   try {

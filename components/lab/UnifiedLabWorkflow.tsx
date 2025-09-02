@@ -85,14 +85,6 @@ export default function UnifiedLabWorkflow() {
       const response = await fetch('/api/orders?limit=100');
       if (response.ok) {
         const data = await response.json();
-        console.log('Orders fetched:', data.orders?.length || 0, 'orders');
-        
-        // Debug: Check test data in first order
-        if (data.orders && data.orders.length > 0) {
-          const firstOrder = data.orders[0];
-          console.log('First order tests:', firstOrder.tests);
-          console.log('First order complete data:', JSON.stringify(firstOrder, null, 2));
-        }
         
         setOrders(data.orders || []);
       } else {
@@ -188,10 +180,8 @@ export default function UnifiedLabWorkflow() {
 
   const openResultModal = (order: TestOrder, test: TestOrder['tests'][0]) => {
     const testName = test.name || 'Unknown Test';
-    const testCode = test.code || 'N/A';
     const normalRange = 'Not specified';
     
-    console.log('Opening result modal for:', { testName, testCode, testId: test._id });
     
     setSelectedOrder(order);
     setSelectedTest(test);
@@ -268,7 +258,6 @@ export default function UnifiedLabWorkflow() {
         const testName = test.name || `Test ${index + 1}`;
         const testCode = test.code || `TEST${index + 1}`;
         
-        console.log(`Creating result for test:`, { testName, testCode, testId: test._id });
         
         const response = await fetch('/api/results', {
           method: 'POST',
@@ -293,7 +282,6 @@ export default function UnifiedLabWorkflow() {
           const errorData = await response.json();
           // If result already exists, that's ok - just continue
           if (response.status === 409) {
-            console.log(`Result already exists for ${testName}, skipping...`);
             return { message: 'Result already exists' };
           }
           console.error(`Failed to save result for ${testName}:`, errorData);

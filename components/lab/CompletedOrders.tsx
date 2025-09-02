@@ -49,80 +49,35 @@ interface TestResult {
 
 export default function CompletedOrders() {
   const [completedOrders, setCompletedOrders] = useState<TestOrder[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<TestOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'normal' | 'urgent' | 'stat'>('all');
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const ordersPerPage = 20;
 
-  const filterOrders = useCallback(() => {
-    let filtered = [...completedOrders];
-
-    // Date filter
-    if (dateFilter !== 'all') {
-      const now = new Date();
-      const filterDate = new Date();
-      
-      switch (dateFilter) {
-        case 'today':
-          filterDate.setHours(0, 0, 0, 0);
-          break;
-        case 'week':
-          filterDate.setDate(now.getDate() - 7);
-          break;
-        case 'month':
-          filterDate.setMonth(now.getMonth() - 1);
-          break;
-      }
-      
-      filtered = filtered.filter(order => 
-        new Date(order.completedAt || order.createdAt) >= filterDate
-      );
-    }
-
-    // Priority filter
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter(order => order.priority === priorityFilter);
-    }
-
-    // Search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(order => 
-        order.orderNumber.toLowerCase().includes(searchLower) ||
-        order.patient.firstName.toLowerCase().includes(searchLower) ||
-        order.patient.lastName.toLowerCase().includes(searchLower) ||
-        order.patient.patientId.toLowerCase().includes(searchLower) ||
-        order.tests.some(test => 
-          test.name?.toLowerCase().includes(searchLower) ||
-          test.code?.toLowerCase().includes(searchLower)
-        )
-      );
-    }
-
-    // Sort by completion date (newest first)
-    filtered.sort((a, b) => 
-      new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime()
-    );
-
-    setFilteredOrders(filtered);
-  }, [completedOrders, dateFilter, priorityFilter, searchTerm]);
-
-  useEffect(() => {
-    fetchCompletedOrders();
-  }, []);
-
-  useEffect(() => {
-    filterOrders();
-  }, [completedOrders, searchTerm, dateFilter, priorityFilter, filterOrders]);
-
-  const fetchCompletedOrders = async () => {
+  const fetchCompletedOrders = useCallback(async (page = currentPage, search = searchTerm, priority = priorityFilter) => {
     try {
       setLoading(true);
-      const response = await fetch('/api/orders?orderStatus=completed&limit=100');
+      
+      const searchParams = new URLSearchParams({
+        page: page.toString(),
+        limit: ordersPerPage.toString(),
+        orderStatus: 'completed',
+        ...(search && { search }),
+        ...(priority !== 'all' && { priority })
+      });
+      
+      const response = await fetch(`/api/orders?${searchParams}`);
       if (response.ok) {
         const data = await response.json();
         setCompletedOrders(data.orders || []);
+        setTotalPages(data.pagination?.pages || 1);
+        setTotalOrders(data.pagination?.total || 0);
+        setCurrentPage(page);
       } else {
         console.error('Failed to fetch completed orders');
       }
@@ -131,6 +86,23 @@ export default function CompletedOrders() {
     } finally {
       setLoading(false);
     }
+  }, [currentPage, searchTerm, priorityFilter, ordersPerPage]);
+
+  useEffect(() => {
+    fetchCompletedOrders();
+  }, [fetchCompletedOrders]);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchCompletedOrders(1, searchTerm, priorityFilter);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, priorityFilter, fetchCompletedOrders]);
+
+  const handlePageChange = (page: number) => {
+    fetchCompletedOrders(page, searchTerm, priorityFilter);
   };
 
   const viewResults = (orderId: string) => {
@@ -157,7 +129,7 @@ export default function CompletedOrders() {
       }
       
       // Import jsPDF dynamically to avoid SSR issues
-      const { default: jsPDF } = await import('jspdf');
+      const jsPDF = (await import('jspdf')).default;
       const doc = new jsPDF();
       
       let yPosition = 20;
@@ -167,11 +139,24 @@ export default function CompletedOrders() {
       
       // Logo and Header
       try {
-        // Try to add logo (this would need the logo file to be available)
-        // doc.addImage('/Logo.png', 'PNG', pageWidth / 2 - 10, yPosition, 20, 20);
-        yPosition += 25;
-      } catch {
-        // Skip logo if not available
+        // Load logo image from public directory
+        const logoResponse = await fetch('/logo.png');
+        if (logoResponse.ok) {
+          const logoBlob = await logoResponse.blob();
+          const logoBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(logoBlob);
+          });
+          
+          // Add logo to top left of PDF
+          doc.addImage(logoBase64, 'PNG', margin, yPosition, 20, 20);
+          yPosition += 25;
+        } else {
+          yPosition += 10;
+        }
+      } catch (error) {
+        console.warn('Could not load logo for PDF:', error);
         yPosition += 10;
       }
       
@@ -396,7 +381,7 @@ Report generated: ${new Date().toLocaleString()}
             <p className="text-sm text-muted-foreground">Archive and history of all completed lab tests</p>
           </div>
           <button
-            onClick={fetchCompletedOrders}
+            onClick={() => fetchCompletedOrders()}
             className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium shadow-lg hover:shadow-xl transition-all duration-200"
           >
             <svg className="w-4 h-4 mr-1.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -409,39 +394,9 @@ Report generated: ${new Date().toLocaleString()}
 
       {/* Filters */}
       <div className="bg-white/50 px-6 py-4 border-b border-gray-200">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          {/* Date Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Date</label>
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value as 'all' | 'today' | 'week' | 'month')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
-            >
-              <option value="all">All Time</option>
-              <option value="today">Today</option>
-              <option value="week">Past Week</option>
-              <option value="month">Past Month</option>
-            </select>
-          </div>
-
-          {/* Priority Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Priority</label>
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value as 'all' | 'normal' | 'urgent' | 'stat')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
-            >
-              <option value="all">All Priorities</option>
-              <option value="stat">🚨 STAT Only</option>
-              <option value="urgent">⚡ Urgent Only</option>
-              <option value="normal">Normal Only</option>
-            </select>
-          </div>
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Search */}
-          <div className="lg:col-span-2">
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -457,6 +412,21 @@ Report generated: ${new Date().toLocaleString()}
                 className="w-full pl-10 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
             </div>
+          </div>
+
+          {/* Priority Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Priority</label>
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value as 'all' | 'normal' | 'urgent' | 'stat')}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            >
+              <option value="all">All Priorities</option>
+              <option value="stat">🚨 STAT Only</option>
+              <option value="urgent">⚡ Urgent Only</option>
+              <option value="normal">Normal Only</option>
+            </select>
           </div>
         </div>
       </div>
@@ -479,7 +449,7 @@ Report generated: ${new Date().toLocaleString()}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredOrders.map((order) => (
+              {completedOrders.map((order) => (
                 <tr key={order._id} className="hover:bg-gray-50 transition-colors duration-200">
                   <td className="px-6 py-4">
                     <div className="space-y-1">
@@ -539,7 +509,7 @@ Report generated: ${new Date().toLocaleString()}
           </table>
         </div>
 
-        {filteredOrders.length === 0 && (
+        {completedOrders.length === 0 && !loading && (
           <div className="text-center py-12">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -552,22 +522,74 @@ Report generated: ${new Date().toLocaleString()}
         )}
       </div>
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="px-6 py-4 bg-white border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-500">
+              Showing page {currentPage} of {totalPages} ({totalOrders} total orders)
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              
+              {/* Page numbers */}
+              <div className="flex space-x-1">
+                {[...Array(Math.min(5, totalPages))].map((_, index) => {
+                  let page;
+                  if (totalPages <= 5) {
+                    page = index + 1;
+                  } else if (currentPage <= 3) {
+                    page = index + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    page = totalPages - 4 + index;
+                  } else {
+                    page = currentPage - 2 + index;
+                  }
+                  
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${
+                        currentPage === page
+                          ? 'bg-green-600 text-white'
+                          : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Footer */}
       <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200">
         <div className="flex justify-between items-center text-sm">
           <div className="flex items-center space-x-6">
             <span className="text-muted-foreground">
-              <span className="font-semibold text-foreground">{filteredOrders.length}</span> completed orders
+              <span className="font-semibold text-foreground">{completedOrders.length}</span> orders on this page
             </span>
             <span className="text-muted-foreground">
               Total tests: <span className="font-semibold text-foreground">
-                {filteredOrders.reduce((sum, order) => sum + (order.tests?.length || 0), 0)}
-              </span>
-            </span>
-            <span className="text-muted-foreground">
-              Revenue: <span className="font-semibold text-foreground">
-                Rs. {filteredOrders.reduce((sum, order) => sum + order.totalAmount, 0).toLocaleString()}
+                {completedOrders.reduce((sum, order) => sum + (order.tests?.length || 0), 0)}
               </span>
             </span>
           </div>

@@ -80,7 +80,8 @@ export async function PATCH(
       notes,
       paidAmount,
       paymentMethod,
-      paymentStatus
+      paymentStatus,
+      completedAt
     } = body;
 
     console.log('Connecting to database...');
@@ -102,6 +103,7 @@ export async function PATCH(
     if (notes !== undefined) updateData.notes = notes;
     if (paymentMethod) updateData.paymentMethod = paymentMethod;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
+    if (completedAt) updateData.completedAt = new Date(completedAt);
     
     if (paidAmount !== undefined) {
       updateData.paidAmount = Math.max(0, Math.min(paidAmount, order.totalAmount));
@@ -158,6 +160,7 @@ export async function PUT(
       priority,
       sampleCollectionDate,
       expectedReportDate,
+      completedAt,
       notes,
       paidAmount,
       paymentMethod
@@ -194,6 +197,7 @@ export async function PUT(
     if (priority) updateData.priority = priority;
     if (sampleCollectionDate) updateData.sampleCollectionDate = new Date(sampleCollectionDate);
     if (expectedReportDate) updateData.expectedReportDate = new Date(expectedReportDate);
+    if (completedAt) updateData.completedAt = new Date(completedAt);
     if (notes !== undefined) updateData.notes = notes;
     if (paymentMethod) updateData.paymentMethod = paymentMethod;
     

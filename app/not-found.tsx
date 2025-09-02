@@ -1,7 +1,9 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 
-export default function UnauthorizedPage() {
+export default function NotFound() {
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -26,21 +28,21 @@ export default function UnauthorizedPage() {
             <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-[var(--radius-md)] relative mb-6">
               <div className="flex items-center justify-center">
                 <svg className="h-12 w-12 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
                   <h3 className="text-lg font-medium mb-1">
-                    Access Denied
+                    404 - Page Not Found
                   </h3>
                   <p className="text-sm">
-                    Insufficient permissions to access this page.
+                    The page you&apos;re looking for doesn&apos;t exist.
                   </p>
                 </div>
               </div>
             </div>
             
             <p className="text-card-foreground mb-6">
-              You attempted to access a restricted area. Please contact your administrator if you believe this is an error.
+              The page you&apos;re looking for might have been moved, deleted, or you may have entered an incorrect URL.
             </p>
             
             <div className="space-y-3">

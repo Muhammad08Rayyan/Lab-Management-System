@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Modal, { ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { FormField, Label, Input, Select, Button, Alert, Textarea } from '@/components/ui/FormComponents';
 import PaymentModal from './PaymentModal';
@@ -189,7 +188,6 @@ export default function TestAssignment() {
       if (response.ok) {
         const data = await response.json();
         setOrders(data.orders || []);
-        console.log('Orders refreshed successfully with', data.orders?.length || 0, 'orders'); // Debug log
       } else {
         console.error('Failed to fetch orders:', response.status, response.statusText);
       }
@@ -282,25 +280,15 @@ export default function TestAssignment() {
   };
 
   const handleProcessPayment = (order: TestOrder) => {
-    console.log('Processing payment for order:', {
-      id: order?._id,
-      orderNumber: order?.orderNumber,
-      totalAmount: order?.totalAmount,
-      paidAmount: order?.paidAmount,
-      patient: order?.patient,
-      tests: order?.tests?.length
-    });
     setCurrentOrder(order);
     setShowPaymentModal(true);
   };
 
   const handlePaymentSuccess = async () => {
-    console.log('Payment success callback triggered');
     setShowPaymentModal(false);
     setCurrentOrder(null);
     
     // Immediately refresh orders - no need for timeout
-    console.log('Refreshing orders after payment success...');
     await fetchOrders(); // Refresh orders to show updated payment status
     
     setSuccess('Payment processed successfully!');
@@ -313,7 +301,6 @@ export default function TestAssignment() {
 
   const handleShowOrderReceipt = (order: TestOrder) => {
     // Navigate to the receipt page with proper order ID
-    console.log('Opening receipt for order ID:', order._id);
     // Open in new tab
     window.open(`/reception/receipt?orderId=${order._id}`, '_blank');
   };
@@ -635,7 +622,6 @@ export default function TestAssignment() {
                                 onMouseDown={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  console.log('Patient selected via mousedown:', patient._id, patient.firstName, patient.lastName);
                                   setOrderForm({ ...orderForm, patientId: patient._id });
                                   setPatientSearchTerm(`${patient.firstName} ${patient.lastName} - ${patient.email}`);
                                   setShowPatientDropdown(false);
@@ -999,7 +985,6 @@ export default function TestAssignment() {
                                   onMouseDown={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    console.log('Patient selected via mousedown:', patient._id, patient.firstName, patient.lastName);
                                     setOrderForm({ ...orderForm, patientId: patient._id });
                                     setPatientSearchTerm(`${patient.firstName} ${patient.lastName} - ${patient.email}`);
                                     setShowPatientDropdown(false);

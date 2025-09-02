@@ -39,7 +39,6 @@ export default function SimpleResultsManagement() {
       const response = await fetch('/api/orders?orderStatus=in_progress');
       if (response.ok) {
         const data = await response.json();
-        console.log('Processing orders:', data);
         setProcessingOrders(data.orders || []);
       }
     } catch (error) {
@@ -70,8 +69,6 @@ export default function SimpleResultsManagement() {
 
     setUploading(true);
     try {
-      console.log('Starting upload for order:', selectedOrder._id);
-      console.log('Images to upload:', selectedImages.length);
       
       // For now, let's just complete the order without actually uploading images
       // We'll create a simple result record first
@@ -101,7 +98,6 @@ export default function SimpleResultsManagement() {
         throw new Error(`Failed to save result: ${errorData.error || 'Unknown error'}`);
       }
 
-      console.log('Result created successfully');
 
       // Mark order as completed
       const orderResponse = await fetch(`/api/orders/${selectedOrder._id}`, {
@@ -116,7 +112,6 @@ export default function SimpleResultsManagement() {
         throw new Error(`Failed to complete order: ${errorData.error || 'Unknown error'}`);
       }
 
-      console.log('Order completed successfully');
 
       alert('Order completed successfully!');
       setShowUploadModal(false);

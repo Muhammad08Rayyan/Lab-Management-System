@@ -48,9 +48,6 @@ export async function GET(request: NextRequest) {
 
     const total = await LabTest.countDocuments(query);
 
-    console.log('API: Found tests:', tests.length);
-    console.log('API: Total count:', total);
-    console.log('API: Tests data:', tests);
 
     return NextResponse.json({
       tests,

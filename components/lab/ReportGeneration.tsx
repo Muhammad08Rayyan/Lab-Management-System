@@ -69,10 +69,6 @@ export default function ReportGeneration() {
         return;
       }
       
-      // Debug patient data in grouped results
-      if (result.testOrder?.patient) {
-        console.log('Patient data in grouping:', result.testOrder.patient);
-      }
       
       const orderId = result.testOrder._id;
       if (!grouped[orderId]) {
@@ -99,8 +95,6 @@ export default function ReportGeneration() {
       const ordersData = await ordersResponse.json();
       const inProgressOrders = ordersData.orders || [];
       
-      console.log('In-progress orders with patient data:', inProgressOrders);
-      console.log('Patient data sample:', inProgressOrders[0]?.patient);
       
       // Then get results for these orders
       const allResults = [];
@@ -123,7 +117,6 @@ export default function ReportGeneration() {
         }
       }
       
-      console.log('All results with complete order data:', allResults);
       setPendingResults(allResults);
       
     } catch (error) {
@@ -142,8 +135,6 @@ export default function ReportGeneration() {
       // For now, we'll simulate the report generation and just update the order status
       // In a real implementation, this would generate a PDF and save it
       
-      console.log('Generating report for order:', orderId);
-      console.log('Order results:', orderResults);
       
       // Simulate processing time
       await new Promise(resolve => setTimeout(resolve, 2000));

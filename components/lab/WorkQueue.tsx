@@ -43,11 +43,9 @@ export default function WorkQueue() {
         url += 'orderStatus=pending,confirmed,in_progress&';
       }
 
-      console.log('Fetching orders from:', url);
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        console.log('Work Queue data received:', data);
         setAvailableOrders(data.orders || []);
       } else {
         console.error('Work Queue API error:', response.status, await response.text());

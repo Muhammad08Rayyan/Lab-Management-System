@@ -96,21 +96,17 @@ PatientSchema.index({ phone: 1 });
 
 // Pre-validate hook to generate patientId BEFORE validation
 PatientSchema.pre('validate', async function(next) {
-  console.log('Patient pre-validate hook running for:', this.firstName, this.lastName);
   if (!this.patientId) {
     try {
       const PatientModel = this.constructor as mongoose.Model<IPatient>;
       const count = await PatientModel.countDocuments();
       this.patientId = `PAT${String(count + 1).padStart(6, '0')}`;
-      console.log('Generated patientId:', this.patientId);
     } catch (error) {
       console.error('Error generating patientId:', error);
       // Fallback to timestamp-based ID
       this.patientId = `PAT${Date.now().toString().slice(-6)}`;
-      console.log('Using fallback patientId:', this.patientId);
     }
   }
-  console.log('Patient pre-validate hook completed');
   next();
 });
 

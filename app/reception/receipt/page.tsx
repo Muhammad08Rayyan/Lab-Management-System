@@ -46,7 +46,6 @@ function ReceiptPageContent() {
       return;
     }
 
-    console.log('Fetching order details for ID:', orderId);
 
     try {
       setLoading(true);
@@ -54,12 +53,9 @@ function ReceiptPageContent() {
       let response = await fetch(`/api/receipt/${orderId}`);
       
       if (!response.ok) {
-        console.log('Receipt API failed, trying orders API');
         response = await fetch(`/api/orders/${orderId}`);
       }
       
-      console.log('API Response status:', response.status);
-      console.log('API Response ok:', response.ok);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -68,7 +64,6 @@ function ReceiptPageContent() {
       }
 
       const data = await response.json();
-      console.log('Order data received:', data.order ? 'exists' : 'null');
       setOrder(data.order);
     } catch (error) {
       console.error('Error fetching order:', error);

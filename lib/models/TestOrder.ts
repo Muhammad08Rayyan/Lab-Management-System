@@ -13,6 +13,7 @@ export interface ITestOrder extends Document {
   priority: 'normal' | 'urgent' | 'stat';
   sampleCollectionDate?: Date;
   expectedReportDate?: Date;
+  completedAt?: Date;
   notes?: string;
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -77,6 +78,9 @@ const TestOrderSchema = new Schema<ITestOrder>({
   expectedReportDate: {
     type: Date
   },
+  completedAt: {
+    type: Date
+  },
   notes: {
     type: String,
     trim: true
@@ -111,13 +115,11 @@ TestOrderSchema.pre('validate', async function(next) {
         }
       });
       this.orderNumber = `ORD${dateStr}${String(count + 1).padStart(4, '0')}`;
-      console.log('Generated orderNumber:', this.orderNumber);
     } catch (error) {
       console.error('Error generating orderNumber:', error);
       // Fallback to timestamp-based ID
       const timestamp = Date.now().toString().slice(-8);
       this.orderNumber = `ORD${timestamp}`;
-      console.log('Using fallback orderNumber:', this.orderNumber);
     }
   }
   next();
