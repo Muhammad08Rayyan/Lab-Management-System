@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import UserManagement from '@/components/admin/UserManagement';
 import TestManagement from '@/components/admin/TestManagement';
+import Analytics from '@/components/admin/Analytics';
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
@@ -57,19 +58,8 @@ export default function AdminDashboard() {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <div className="bg-card/60 backdrop-blur-sm rounded-2xl shadow-xl border border-border p-12 text-center">
-            <div className="max-w-md mx-auto">
-              <div className="w-24 h-24 bg-primary rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-12 h-12 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold text-foreground mb-4">Dashboard</h3>
-              <p className="text-muted-foreground text-lg">Coming Soon</p>
-              <div className="mt-6 text-sm text-muted-foreground">
-                Advanced analytics and reporting features will be available here.
-              </div>
-            </div>
+          <div className="bg-card/60 backdrop-blur-sm rounded-2xl shadow-xl border border-border overflow-hidden">
+            <Analytics />
           </div>
         );
       case 'users':

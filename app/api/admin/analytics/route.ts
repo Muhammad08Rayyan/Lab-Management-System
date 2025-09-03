@@ -4,7 +4,6 @@ import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import TestOrder from '@/lib/models/TestOrder';
 import TestResult from '@/lib/models/TestResult';
-import Invoice from '@/lib/models/Invoice';
 
 export async function GET() {
   try {
@@ -254,8 +253,8 @@ export async function GET() {
       {
         $group: {
           _id: '$tests',
-          testName: { $first: '$testInfo.testName' },
-          testCode: { $first: '$testInfo.testCode' },
+          testName: { $first: '$testInfo.name' },
+          testCode: { $first: '$testInfo.code' },
           count: { $sum: 1 },
           revenue: { $sum: '$testInfo.price' }
         }
@@ -268,6 +267,42 @@ export async function GET() {
       }
     ]);
 
+    // Pending Tests Count
+    const pendingTests = await TestOrder.aggregate([
+      {
+        $match: {
+          orderStatus: { $in: ['pending', 'confirmed'] }
+        }
+      },
+      {
+        $unwind: '$tests'
+      },
+      {
+        $group: {
+          _id: null,
+          count: { $sum: 1 }
+        }
+      }
+    ]).then(result => result[0]?.count || 0);
+
+    // In Progress Tests Count
+    const inProgressTests = await TestOrder.aggregate([
+      {
+        $match: {
+          orderStatus: 'in_progress'
+        }
+      },
+      {
+        $unwind: '$tests'
+      },
+      {
+        $group: {
+          _id: null,
+          count: { $sum: 1 }
+        }
+      }
+    ]).then(result => result[0]?.count || 0);
+
     return NextResponse.json({
       orders: {
         today: totalOrdersToday,
@@ -277,7 +312,9 @@ export async function GET() {
         completedThisWeek: completedOrdersThisWeek,
         completedThisMonth: completedOrdersThisMonth,
         pending: pendingOrders,
-        inProgress: inProgressOrders
+        inProgress: inProgressOrders,
+        pendingTests: pendingTests,
+        inProgressTests: inProgressTests
       },
       tests: {
         completedToday: testsCompletedToday,
